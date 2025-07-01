@@ -1,0 +1,2282 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <title>USA Roadtrip 2025</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Fixed Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #333;
+            color: white;
+            padding: 24px;
+            text-align: center;
+            z-index: 20;
+        }
+
+        .progress-bar {
+            height: 5px;
+            background: #0099ff;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            overflow: visible; /* Allow overflow */
+        }
+
+        .progress {
+            height: 100%;
+            width: 0;
+            background: #ff3939;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        /* 🚐 Van Icon (Smaller Size) */
+        .progress-van {
+            position: absolute;
+            top: -16px; /* Adjusted for a smaller icon */
+            right: 16px; /* Centered the van at the right edge of the progress bar */
+            width: 32px;  /* Smaller size */
+            height: 32px; /* Smaller size */
+            transition: transform 0.3s ease;
+            z-index: 15;  /* Ensure the van icon is above the progress bar */
+        }
+
+        /* Odometer */
+        .odometer {
+            font-family: 'Courier New', monospace;
+            font-size: 2.5em;
+            letter-spacing: 5px;
+            color: #fff;
+            background-color: #333;
+            display: inline-block;
+            text-align: center;
+            padding: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            position: fixed;
+            width: 30vw;
+            bottom: 0px;
+            left: 0px;
+            z-index: 20;
+        }
+
+        /* Main Container */
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .page {
+            position: absolute;
+            width: 70vw;
+            top: 75.5px;
+            right: 0;
+            height: calc(100vh - 75.5px);
+            padding: 20px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            transition: transform 0.5s ease-in-out;
+        }
+
+        .page-content {
+            opacity: 0;
+            transition: opacity 0.6s ease-in-out;
+            transform: scale(0.95);
+
+            overflow-y: auto;
+
+            color: #333;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 20px;
+            border-radius: 15px;
+
+            -webkit-box-shadow: 5px 5px 25px 0px rgba(0,0,0,0.5);
+            -moz-box-shadow: 5px 5px 25px 0px rgba(0,0,0,0.5);
+            box-shadow: 5px 5px 25px 0px rgba(0,0,0,0.5);
+        }
+
+        .page h1 {
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .page p {
+            font-size: 1.2em;
+            max-width: 800px;
+        }
+
+        /* Navigation Buttons */
+        .nav-button {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.6);
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+            z-index: 20;
+            font-weight: bold;
+        }
+
+        .nav-button:hover {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .left-button {
+            top: 36px;
+            left: 8px;
+        }
+
+        .right-button {
+            top: 36px;
+            right: 8px;
+        }
+
+        /* Fixed minimap in the bottom-left corner */
+        #minimap {
+            width: 30vw;
+            height: 100vh;
+            border: 1px solid #ccc;
+            position: fixed;
+            left: 0px;
+            z-index: 19;
+        }
+
+        .scene-container {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .sky {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: background-color 0.5s ease;
+        }
+
+        .orbit-container {
+            position: absolute;
+            width: 100%;
+            bottom: 0;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        .celestial-orbit {
+            position: relative;
+            bottom: 0;
+            width: 66.67vmin; /* 2/3 of min(viewport width, height) */
+            height: 33.33vmin; /* 1/3 of min(viewport width, height) */
+            transform-origin: center bottom;
+            transition: transform 0.5s ease;
+        }
+
+        .celestial-body {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            /* transition: left 0.5s ease, top 0.5s ease; */
+            transition: left 0.5s ease,
+                        top 0.5s ease,
+                        background-image 0.5s ease, /* Add background */
+                        box-shadow 0.5s ease,      /* Add shadow */
+                        opacity 0.5s ease,
+                        transform 0.5s ease;
+        }
+
+        .sun {
+            /* background: radial-gradient(circle, #fff176 10%, #ffeb3b 60%, #ffd54f 100%); */
+            /* box-shadow: 0 0 50px #ffeb3b, 0 0 100px #ff9800; */
+        }
+
+        .moon {
+            /* background dynamically set */
+            /* box-shadow dynamically set */
+            position: relative; /* Needed for pseudo-element positioning */
+            overflow: hidden;  /* Crucial to clip the ::after element */
+        }
+
+        /* Crescent effect using ::after */
+        .moon::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 40%; /* Adjust crescent thickness */
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            /* Use a CSS variable for dynamic color, with a fallback */
+            background-color: var(--moon-shadow-color, #484630ca);
+            box-shadow: 0px 0px 10px 5px rgba(0,0,0,0.75);
+            z-index: 1; /* Ensure it's above the main moon background */
+            transition: background-color 0.5s ease; /* Smooth color transition */
+        }
+
+        .cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50px;
+            transition: background-color 0.5s ease, left 15s linear;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="scene-container">
+        <div class="sky"></div>
+        <div class="orbit-container">
+            <div class="celestial-orbit">
+                <div class="celestial-body sun"></div>
+                <div class="celestial-body moon"></div>
+            </div>
+        </div>
+        <!-- Clouds will be dynamically added -->
+    </div>
+
+    <div class="header">
+        <h2 id="title" style="font-size: 1.3rem;">Loading...</h2>
+        <div class="progress-bar">
+            <div class="progress">
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAA7AAAAOwBeShxvQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAWnSURBVFiF7ZZ7bJbVHcc/5zyXvn17QUZXZlu0tIMic1WpENBYtCMMxJoNNRG3ZRoNwxmMwzjjdZ1GDaiobHGYkA3dhRgmdWGzDDVcNAMN4gYtpRWLqYiUlbavb9/LczvHPx5eWt++BeZQ//GbPMnz/H6/c36f5/zODb7W1/qKJYa9W0BFlu3/0TEgdroA8zCtDRiWPDO5hUnggQ5uIQjWnhogv+igWPJspZj5wzOT33Nh+8uoP98Z4PsrceJ3A3r0BlZeQq7aq8X8JQ4IfTxYi5pZKfnioJYvDmpx2fXpjB3Qom7+kG/avNRnfPU/Ssl1MW3c9XdNSWVAwdiNgJErtTn8Q//ndV8ubLLFhFpwEgSrfxzJ1Ejv2Ypc9CSitAod60Gtu9M84Wt7w5Q3rkaMGY8+2oV65XEhpIGum42010i1dumVpAaXorynTwogvlUt1aaVLoat0FowtkwANoAoPVervz3sYlgK5UvxzQkq016UVPhq/T0KaSoCT4qK81TYoYDSCcjvzJVqsG8BsZ5RAAwzwUBPVCz7U0R81AEqbM/4qiG4BzZGxOFO0MdLWTZ5yPfo9tCXSVpeM+QLAlSyHwKvN1cJwlG08pYijRXi3PM9KTkjK0FrobXSAsfJ00c6FW5qFrA7N0CoacCutU8govkn73z573DrxmLPmTLU3Avg0EA4QH0JzYrNgBAvo/XzwA6gJ1dfwwHmTqzgpQPbKHzkWak6uk0/O7jybN9sWqrkNbeSXDBeRBdfFtoPD0Dtcou4IxBSoJXGTXtgWQ6OUwHkHH4YNgkti+9f1UCktRN+vTpPBYuW2NnBxgu/d+deGhth39wO6arv4i5/PjR8fAjxs2u0njzV5v39TxGP/+SUAPkRGufOxvQ8ENECn+tvNrODxWvNvuuNBHB9IBrNNmvmXS15as8i4BlgVy6AzIQbl0hSVT9jNM7/XQJg6jSon2NQNOaPjHLGZP5yzgVTSBYXUvR5ko0vBt3VCVs3hcuw/xg68OG9digphXSyBrgPaAbaRgAU5LOgcQ4FAFKCdl3J7h0jEulUSsoc/9FYC7d3H2NLcxMajeNqWn1XTP3HrxK+NoWaWihLROz+9i7VZFm80XOMeYBzAsAwmH3FrLAc530bGi52VftzdySzE02cHMjpF4RLTQwDkQIeawyABABdvXDhYzrY81KiYHj7wW6bq5f5s11fNfXHuOcEgOMyTmvo6g4DVz+Yjow23O0HYMduzHsX5/Z398GHfbl9hSUBdy8yxc0r3Bv6GQagFVx1E748jT2wMI9g2eXCmDlxpG//Eah/UoerIkdfaU9jW+C4jMnYBECeSWJfk4hWlZwa4HR0vAT+J61Dy7ytE6Y3olMuorSY+NFPKCY35xejfQfgkmrYda/AEEN3g5wA/43D+neg+d8QT3++hJ6PeGED7O0IvydVwr/eh4aVmkATZOIyQ6SC4yfwpjb4wXPSP6u0zAl8DyfWa2/9RWBNO+c0Ewfw03VFrrSxfvnMOPqPfsyV37PcDb+J2x9uk+LNLSa3rHDVZwAiFvtf2Uvdzy9HXLfG8OqvvdEqr64xATre2amvXbMx1fWQd4ozMtRvtxq6Y+Ase+FtSzBMk/fefZvN21+1/9oC1zVAedY8M4G/xFKMuWO95uktJLSRZ5RX11hdre8SLSpm0kUzxNv/bM6buVzHpTzZxTJU6xERrW2YaRqmwc6WZqpr6ygpq+DW+we9VROVm056+QNxosCrwKMmsIZwi+SDXr5hmO4qFQSUVlRi2jZuKonSqLcOshiGajea8qORuwYH+qYLIZl00Qw8J43nOMST1mtv7k7/IZtXAPnAiY3HtKxN5dVTausa5kcC32dny4ZE7+FDLUHgj7L1jNAM07ZbZs1fKMaWltH21jY+2LdHB753KbA/KzYNcJBhV+ov+en6FLw4YriedeYNAAAAAElFTkSuQmCC" class="progress-van" id="progressVan">
+            </div>
+        </div>
+    </div>
+
+    <div id="minimap"></div>
+
+    <!-- Odometer -->
+    <div id="odometer" class="odometer">0000 km</div>
+
+    <div class="container" id="container"></div>
+
+    <!-- Navigation Buttons -->
+    <button id="navleft" class="nav-button left-button" onclick="scrollPage('prev')">❮</button>
+    <button id="navright" class="nav-button right-button" onclick="scrollPage('next')">❯</button>
+
+    <!-- Embed JSON in a script tag -->
+    <script>
+        const logbook = [
+            {
+                coords: { lat: 49.705773, lng: -123.1553097 },
+                date: "2025-03-10",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Squamish",
+                km: 0,
+                title: "Ein neue Anfang",
+                text: [
+                    "Hey du und herzlich willkommen! Schön, dass du den Weg zu meinem digitalen Reisetagebuch gefunden hast. Wenn du neugierig bist, wie mein treuer Van Bertha und ich uns drei Monate lang durch die Wildnis Kanadas und der USA geschlagen haben, dann bist du hier goldrichtig!",
+                    "Auf fast 9000 Kilometern haben Bertha und ich so einiges erlebt. Von spektakulären Landschaftspanoramen, die einem den Atem rauben, über freundliche (und weniger freundliche) Diskussionen mit Polizei und Rangern, bis hin zu unfassbar hilfsbereiten Menschen, die uns aus der Patsche geholfen haben. Technische Pannen und tierische Untermieter waren natürlich auch dabei – es war wirklich alles geboten!",
+                    "Es fällt mir schwer, diese epische Reise in ein paar Sätzen zusammenzufassen. Deshalb habe ich versucht, für jeden einzelnen Tag ein paar Gedanken und Erlebnisse festzuhalten – ganz ungefiltert aus dem Vanlife-Alltag. So kannst du diesen etwas anderen Lebensstil hautnah miterleben.",
+                    "Kurzer Hinweis zur Bedienung: Du kannst jede Seite als Lesezeichen speichern und später wieder öffnen. Auf der Karte links kannst du mit einen Klick auf den Wegpunkten zu bestimmten Tage springen, und mit dem Mausrad, den Pfeiltasten oder den Buttons oben blätterst du bequem durch mein Tagebuch.",
+                    "Und jetzt: Viel Spaß beim Stöbern und Mitreisen! Wenn dir gefällt, was du liest, teile den Link gerne mit anderen Abenteuerlustigen."
+                ]
+            },
+            { 
+                coords: { lat: 49.0326074, lng: -122.8554797 },
+                date: "2025-03-10",
+                country: "Canada",
+                state: "British Columbia",
+                place: "White Rock",
+                km: 111,
+                title: "Abschied von Squamish",
+                text: [
+                    "Vorerst letzter Kaffee im Starbucks Squamish – ein wehmütiges Bis bald!",
+                    "Die Rückfahrt nach Vancouver lief überraschend problemlos – Bertha hat sich tapfer die Berge hochgekämpft. Wir sind zwar keine Rennmaschine, aber mit 70 km/h auf der Geraden und unglaublichen 40 km/h bergauf hinterlassen wir zumindest einen bleibenden Eindruck zur Freude aller anderen",
+                    "Zurück in der Stadt dann der große Moment: Snowboard-Ausrüstung zurückgegeben. Damit ist die Winter-Saison für mich offiziell vorbei. Anschließend ein paar Stunden durchs Einkaufszentrum geschlendert – keine Ahnung, ob ich da wirklich was gebraucht hab oder ob es nur eine Verdrängungsstrategie war. Aber dann war’s klar: Zeit, die Großstadt hinter mir zu lassen!",
+                    "Die Nacht hab ich mir auf einem Parkplatz einer Sportanlage gegönnt. Leider mit unfreiwilligem Industrie-Techno in Dauerschleife – irgendeine Maschine hat die ganze Nacht vor sich hin gerattert. Fazit: Schlaftechnisch ein Flop, aber immerhin kostenlos. Mal sehen, wo ich morgen lande… Hauptsache, es ist leiser! 😴"
+                ]
+            },
+            { 
+                coords: { lat: 48.6236464, lng:-122.4580991 },
+                date: "2025-03-11",
+                country: "USA",
+                state: "Washington",
+                place: "Samish",
+                km: 174,
+                title: "Avocado-Drama",
+                text: [
+                    "Heute mal vor dem Wecker wach geworden – 5 Uhr! Etwas müde, aber besser geschlafen als erwartet. Der perfekte Moment, um meine Starlink Mini aus dem Winterschlaf zu holen – danke, Elon, für Internet mitten im Nirgendwo.",
+                    "Noch vor dem Frühstück zwei Stunden aus meinem Bettchen gearbeitet, draußen war’s noch dunkel und regnerisch – also perfekte Bleib-im-Van-und-tu-so-als-wärst-du-produktiv-Stimmung. Dann noch ein letzter Starbucks-Stopp für Koffein und ein bisschen Arbeiten, bevor es Richtung Grenze geht.",
+                    "11:10 Uhr: Grenzübergang USA. Natürlich werde ich kontrolliert.",
+                    "12:15 Uhr: 6 Euro, eine halbe Avocado und ein paar Blaubeeren ärmer – aber immerhin darf ich weiterfahren. Dass meine Vitaminzufuhr jetzt in den Händen der Grenzbeamten liegt, nehme ich persönlich.",
+                    "Erster Stopp nach der Grenze? Supermarkt. Neue Avocados, frische Blaubeeren und – ganz wichtig – Schokolade. Alles wieder im Gleichgewicht.",
+                    "Doch dann… Bertha springt nicht an. Mal wieder. Und ich? Komplett hilflos. Kein Mechaniker kann mir helfen. Ich fange an, über alternative Lebenspläne nachzudenken: Vielleicht sesshaft werden? Vielleicht einen neuen Van kaufen? Vielleicht eine Karriere als Avocado-Schmuggler?",
+                    "Fast drei Stunden später, aus purer Verzweiflung: Ich versuch’s noch mal…",
+                    "BERTHA STARTET! Die alte Dame liebt einfach die Dramatik.",
+                    "Für die Nacht hab ich mich an der Samish Bay einquartiert – wunderschöne Aussicht, aber Dauerregen und erste Mückenattacken. Na super. Ich hoffe, Bertha bleibt morgen gut gelaunt… und dass mir keine Grenzbeamten mehr mein Obst klauen."
+                ]
+            },
+            { 
+                coords: { lat: 48.1078081, lng: -123.3505369 },
+                date: "2025-03-12",
+                country: "USA",
+                state: "Washington",
+                place: "Port Angles",
+                km: 320,
+                title: "Fährenfieber",
+                text: [ 
+                    "Mein Starlink hatte heute Morgen offenbar auch Montag. Wahrscheinlich zu viele Bäume drumherum – also erstmal umparken, damit die Technik wieder mitspielt. Wer hätte gedacht, dass ein Satelliteninternet so wählerisch ist?",
+                    "Dann das große Abenteuer: Fähre fahren! Meine größte Sorge? Dass Bertha beim Ein- oder Ausladen streikt und ich zum unfreiwilligen Hafendekor werde. Aber siehe da – sie hat sich zusammengerissen und ist brav angesprungen. Gute alte Dame! 🚐💨",
+                    "Den Rest des Tages ging’s weiter auf dem Highway 101 – und das wird auch noch eine Weile so bleiben, bis runter nach San Francisco. Heute war’s allerdings eher eine graue, nasse Angelegenheit. Nur fahren, fahren, fahren. Aber Bertha war in Bestform und ist immer gestartet – ein Grund zum Feiern! Wir sind zwar nicht die Schnellsten, aber immerhin haben wir immer eine freie Straße… hinter uns staut es sich dann halt ein bisschen. Ich bin aber ein netter Typ und fahr ab und zu rechts ran, damit die anderen wieder atmen können.",
+                    "Schlafplatzsuche war heute echt nervig. Am Ende ist es ein Rastplatz direkt an der Autobahn geworden – laut, aber immerhin mit Klo. Nach so einem Tag bin ich einfach nur froh, dass der Motor aus ist. Jetzt noch ein bisschen Gitarre spielen und hoffen, dass der Lärm irgendwann zur Hintergrundmusik wird. 🎸"
+                ]
+            },
+            { 
+                coords: { lat: 48.0414979, lng: -123.5904021 },
+                date: "2025-03-13",
+                country: "USA",
+                state: "Washington",
+                place: "Elwha",
+                km: 346, 
+                title: "Duschpremiere",
+                text: [ 
+                    "Heute kaum gefahren (26 km – neuer Tiefstwert!), dafür umso mehr gearbeitet. Erst ein paar Stunden im Starbucks, dann gemütlich aus dem Van. Digitale Nomaden-Life at its best.",
+                    "Nachmittags dann endlich mal wieder richtig aufgewärmt – Schwimmbad, Sauna, Whirlpool. Nach vier Tagen ohne Dusche war das nicht nur Erholung, sondern vermutlich auch dringend notwendig. Falls Leute vorher Abstand gehalten haben… jetzt weiß ich warum.",
+                    "Highlight des Tages: Mein nachgemachter Autoschlüssel für 4 Euro hat sich endlich bewährt! Ich Trottel hab das Original im Zündschloss stecken lassen und die Tür mit einem satten Klack zugeknallt. Danke Jeff, du bist mein Held.",
+                    "Für die Nacht hab ich mich in einer kleinen Parkbucht an der Olympia Hotstring Road einquartiert. Morgen will ich den 38km-Marsch zu den heißen Quellen wagen (19 km hin & zurück) – das wird heftig.",
+                    "Einziger Wermutstropfen: Hier gibt’s tatsächlich Kugas. Und ja, das macht mir ein bisschen Angst. Aber was soll’s – ich hab meine Wanderstöcke, mein kleines Messer und eine Pfeife. Falls es brenzlig wird, kann ich mich immerhin lautstark bemerkbar machen… oder versuchen, den Kuga mit einem panischen Flötenkonzert zu vertreiben.",
+                    "Zum Abschluss noch kurz Herzrasen wegen meiner Heizung – Kontrollpanel hat geblinkt, Heizung gestreikt. Aber jetzt läuft sie wieder. Keine Ahnung, was das Blinken bedeutet hat, aber solange es wieder warm wird, ist mir das auch egal."
+                ]
+            },
+            { 
+                coords: { lat: 48.0414979, lng: -123.5904021 },
+                date: "2025-03-14",
+                country: "USA",
+                state: "Washington",
+                place: "Elwha",
+                km: 347, 
+                title: "38km Paranoia",
+                text: [ 
+                    "Heute mal nicht gefahren, dafür gewandert – ganze 38 km und 1000 Höhenmeter. Meine Beine? Brennen wie ein Lagerfeuer mit Benzin. Falls ich morgen noch gehen kann, wäre das ein medizinisches Wunder.",
+                    "Den ganzen Tag allein unterwegs gewesen, und ehrlich gesagt, hatte ich die ganze Zeit Schiss, einem Kuga zu begegnen. Spoiler: Keiner da. Aber mein Kopf? Hat sich einen Spaß daraus gemacht. Jeder umgestürzte Baum, jeder dunkle Felsen – plötzlich ein lauerndes Raubtier. Und natürlich bewegen sich diese Dinge, wenn du lang genug hinsiehst. Gehirn, was soll das?",
+                    "Auch die Geräusche im Wald – absoluter Horrorfilm-Stoff. Knackende Äste, Schnee, der von den Bäumen fällt, Wind, der durch die Zweige pfeift… Willkommen in meiner persönlichen Survival-Thriller-Simulation.",
+                    "Ziel der Wanderung waren heiße Quellen, und die waren es absolut wert. 20 Minuten im warmen Wasser, umgeben von Natur, einfach perfekt. Mein Körper hat sich bedankt – bis er realisiert hat, dass er trotzdem noch weitere 19 km zurücklegen muss.",
+                    "Der Weg selbst war easy – eine alte, verlassene Straße, die langsam von der Natur zurückerobert wird. Irgendwie melancholisch, aber auch schön.",
+                    "Jetzt bleibt nur die Frage: Wie schlimm wird der Muskelkater morgen? Ich rechne mit Totalausfall für die nächsten drei Tage. Respekt an alle, die freiwillig einen Marathon laufen.",
+                    "Für die Nacht bleib ich wieder in der Parkbucht von gestern – ganz nett hier. Mal sehen, ob ich morgen gehen oder nur rollen kann. 😅"
+                ]
+            },
+            { 
+                coords: { lat: 47.6055159, lng: -124.3717703 },
+                date: "2025-03-15",
+                country: "USA",
+                state: "Washington",
+                place: "Kalaloch",
+                km: 481, 
+                title: "Kampf gegen die Bettmagneten",
+                text: [ 
+                    "Heute Morgen war es ein harter Kampf gegen die Bettmagneten. Meine Beine wollten definitiv nicht raus, aber 7:15 Uhr ist ja quasi schon Mittag! Also raus aus den Federn, rein ins Frühstück und dann ab auf den Highway 101.",
+                    "Das Highlight des Tages: Ich hab endlich wieder den Pazifik erreicht! 🌊 Trotz Sturm und Dauerregen ist es einfach geil, das Meer zu sehen, die salzige Luft zu riechen und den Wellen zuzuhören. Aber ehrlich gesagt – das Wetter könnte langsam mal ein Update auf „sonnig“ vertragen.",
+                    "Mittags bin ich auf dem Parkplatz eines Camping-Resorts gelandet – direkt am Meer, mit einem Trinkwasser-Spender und sogar einem öffentlichen Klo. Ein echter Luxusfund! Kein Handyempfang, aber zum Glück hat Starlink mich nicht komplett im Stich gelassen, also den ganzen Nachmittag gearbeitet. Draußen gab’s eh nur Regen und Sturm – hab also nichts verpasst.",
+                    "Ich versuch mal mein Glück und bleib die Nacht über hier. Jetzt noch ein bisschen Gitarre spielen und hoffen, dass der Wind nicht so laut heult, dass ich dagegen ansingen muss. 🎸🌊",
+                ]
+            },
+            { 
+                coords: { lat: 46.7313077, lng: -124.0614195 },
+                date: "2025-03-16",
+                country: "USA",
+                state: "Washington",
+                place: "North Cove",
+                km: 645, 
+                title: "Ronalds seltsame Vibes",
+                text: [ "Heute gefühlt nur gefahren – bin früh los und hatte den Highway 101 für mich allein. Keine nervigen Drängler, keine LKWs, einfach entspannt 70 km/h cruisen, als wäre es meine persönliche Rennstrecke… nur eben in Zeitlupe.",
+                        "Bevor es losging, hab ich meinem treuen Gefährt mal unter die Haube geschaut. Öl? Da. Bremsflüssigkeit? Check. Kühlflüssigkeit? Oh… da ist ein Loch im Kühler. Hm. Mal schauen, ob sich das mit Optimismus und gelegentlichem Ignorieren regeln lässt.",
+                        "Zum Arbeiten hab ich mich ins Starbucks gesetzt – klassisches Nomadenleben. Mein ausklappbarer Laptophalter war wieder mal der Star des Cafés. Amerikaner sind echt gesprächig! Hier wird Small Talk auf Profi-Niveau betrieben. Manche Gespräche sind nett… andere, na ja… sagen wir mal aufdringlich.",
+                        "Ronald zum Beispiel. Ronald war sehr interessiert an meinem Leben. Ronald wollte offensichtlich nicht gehen. Ronald war mir irgendwann… unangenehm. Als er dann erwähnte, dass er nur 500 Meter von meinem heutigen Schlafplatz wohnt, hat mein inneres Alarmsystem kurz aufgeleuchtet. Hoffentlich kommt Ronald nicht auf spontane Besuchsideen.",
+                        "Aber genug von Ronald – mein Stellplatz ist der Wahnsinn! Direkt am Pazifik, Fenster auf und nur Wellen und Meerblick. Daran könnte ich mich echt gewöhnen. Jetzt fehlt eigentlich nur noch ein epischer Sonnenuntergang und ich, wie ich mit meiner Gitarre in die Weite spiele. Perfekter Abschluss für den Tag. Vorausgesetzt, Ronald bleibt zu Hause. 😅" 
+                    ]
+            },
+            { 
+                coords: { lat: 46.2484353, lng: -123.9139954 },
+                date: "2025-03-17",
+                country: "USA",
+                state: "Washington",
+                place: "McGowan",
+                km: 775, 
+                title: "Dusche für Hobbits",
+                text: [ 
+                    "Früh aufgestanden, ein paar Stunden gearbeitet – Business as usual. Doch dann der Schock des Tages: Starlink hatte offenbar keinen Bock auf Meetings. Während ich mit meinen Kollegen sprach, war meine Internetverbindung so unzuverlässig wie ein Gebrauchtwagen mit zweifelhaftem TÜV. Wahrscheinlich hab ich die Hälfte der Diskussion verpasst – oder sie haben mich einfach stummgeschaltet. Wer weiß.",
+                    "Nach dem Meeting ging’s weiter Richtung Süden auf dem Highway 101. Unterwegs ein kleiner Campingplatz mit Duschen – sogar heißen Duschen! Das klang vielversprechend, bis ich die Realität sah: Eine Mini-Dusche, in der ich mich gefühlt habe wie ein Riese in einem Puppenhaus. Der Duschkopf auf Brusthöhe machte die Haarwäsche zur athletischen Meisterleistung. Aber hey, immerhin bin ich jetzt sauber.",
+                    "Nach der Dusche erstmal Kaffee und ein Anruf nach Hause – muss ja mal schauen, ob in der alten Welt noch alles rund läuft. Dann weiterfahren, Regen, nichts verpasst.",
+                    "Zum Mittag Halt am Long Island Beach. Endlich wieder stabiles Internet! Also Laptop auf, ein paar Stunden produktiv gewesen. Doch die größere Herausforderung wartete noch: einen Schlafplatz finden. Heute war’s echt knifflig, am Ende ist es wieder eine Parkbucht am Highway geworden. Nicht gerade mein Traumplatz – zu viel Verkehr, zu wenig Ruhe.",
+                    "Morgen geht’s über die Grenze nach Oregon. Ich hoffe auf einsame Strände, weniger LKWs – und bitte, bitte eine Dusche, in der ich nicht in die Knie gehen muss!"
+                ]
+            },
+            { 
+                coords: { lat: 45.8725736, lng: -123.9596586 },
+                date: "2025-03-18",
+                country: "USA",
+                state: "Oregon",
+                place: "Cannon Beach",
+                km: 825, 
+                title: "Hupkonzert",
+                text: [
+                    "Meine Schlafplatzwahl? Absolute Katastrophe. Drei Meter neben der Fahrbahn, jedes vorbeifahrende Auto quasi direkt in meinem Ohr. Schlaf? Fehlanzeige.",
+                    "Um 5 Uhr morgens dann der Wecker – keine Sekunde zu früh. Schnell Zähne geputzt und nix wie weg. Noch komplett dunkel, also mit Schrittgeschwindigkeit auf den Highway 101. Bertha und ich waren vermutlich der Albtraum aller Frühaufsteher auf der Straße, aber hey – Safety first!",
+                    "Nach 15 Minuten dann endlich: Oregon! Tschau, Washington – war schön mit dir.",
+                    "Erste Erkenntnis: Autofahrer in Oregon haben offenbar nicht so viel Geduld wie ihre Nachbarn. Drei Mal angehupt – warum? Keine Ahnung. Vielleicht ist 40 km/h bergauf hier nicht so gesellschaftlich akzeptiert. 🤷‍♂️",
+                    "Den Vormittag hab ich dann richtig produktiv genutzt – motiviert, die letzten Arbeitstickets abzuräumen. Wenn’s läuft, dann läuft’s.",
+                    "Am Nachmittag dann weiter auf der Straße. Schließlich will ich ja vorankommen! Ziel des Tages: Cannon Beach. Wunderschön, aber das Parkproblem bleibt: Übernachtung auf dem Tages-Rastplatz? Natürlich nicht erlaubt. Aber neben dem Tages-Rastplatz? Tja, das wird sich zeigen. Ich hoffe, mein Plan geht auf – ich brauche dringend eine bessere Nacht als die letzte. 😴"
+                ]
+            },
+            { 
+                coords: { lat: 45.460803, lng: -123.970286 },
+                date: "2025-03-19",
+                country: "USA",
+                state: "Oregon",
+                place: "Cape Mares",
+                km: 905, 
+                title: "Polizeitraum oder Realität?",
+                text: [
+                    "Mitten in der Nacht hatte ich einen echt komischen Traum – jemand klopfte an meine Tür und rief „Police!“. Kein Traum!",
+                    "Noch komplett im Delirium hab ich meinen Reisepass rausgekramt, vermutlich mit der Anmutung eines Zombies. Zum Glück war der Officer nett, ließ mich ohne Strafe weiterziehen.",
+                    "Nächste Station: Eine winzige Parkbucht auf Highway 101. Also wieder wenig Schlaf, und ich konnte den Wecker kaum erwarten. Noch vor Sonnenaufgang bin ich zum nächsten legalen Rastplatz gefahren – blöd nur, dass der erst ab 6 Uhr legal war.",
+                    "Und weil das Universum scheinbar gerade „Wie viel Bürokratie kann ein Mensch am Morgen ertragen?“ mit mir spielt – Klopf, klopf! Dürfte ich vorstellen: Ranger Jeff.",
+                    "Während ich mir gerade meinen Kaffee gemacht habe, fragt er höflich, ob ich vielleicht hier genächtigt hätte. Natürlich nicht! Ich doch nicht! Schlafen außerhalb erlaubter Zeiten ist schließlich illegal! Jeff nickt verständnisvoll und wünscht mir einen schönen Tag. Danke, Jeff.",
+                    "Nach ein paar Stunden Arbeit dachte ich: Jetzt reicht’s. Ich brauch Bewegung. Also eine kleine Wanderung – immerhin etwas Seelenfrieden nach diesem Start in den Tag.",
+                    "Am Nachmittag dann wieder ein bisschen gefahren. Das Wetter? Katastrophe. Sturm, Regen, und das Meer? Komplett am Ausrasten.",
+                    "Mein Schlafplatz heute Nacht: Ein Wanderparkplatz. Ob das erlaubt ist? Vermutlich nicht. Aber irgendwo muss ich ja schlafen! Und hier ist endlich mal keine Menschenseele und kein Verkehr. Wenn mich heute Nacht keine Polizei, kein Ranger Jeff und keine Naturgewalten wecken, dann wäre das wirklich mal ein Fortschritt. Bitte, Universum, nur eine Nacht durchpennen! 🙏😴"
+                ]
+            },
+            { 
+                coords: { lat: 44.91786, lng: -123.970727 },
+                date: "2025-03-20",
+                country: "USA",
+                state: "Oregon",
+                place: "Drift Creek Country Park",
+                km: 1030, 
+                title: "Parkplatz-Nickerchen",
+                text: [
+                    "Wieder kaum Schlaf – der Sturm hat an Bertha gerüttelt, und jedes Geräusch klang wie ein Klopfen an meiner Tür. Dann plötzlich: Taghell. Ein Knall, als wäre ich explodiert! Brauchte eine Sekunde, um zu checken – Gewitter. Und zwar ein gnadenloses.",
+                    "Seit letzter Nacht Dauerregen. Laune? Im Keller. Mein Versuch, an den Strand zu gehen, scheiterte direkt – Regen und Wind haben mir ins Gesicht geprügelt.",
+                    "Nachmittags Einkaufen – und die Gelegenheit genutzt, um einen kurzen Mittagsschlaf auf dem Parkplatz einzulegen. Highlight des Tages? Vielleicht.",
+                    "Heute stehe ich auf einer Forststraße, weit weg vom Highway 101. Bisher nur ein einziges Auto vorbeigekommen. Es ist 18:45 Uhr, und ich bin bereit für’s Bett. Vielleicht heute mal eine ruhige Nacht? 🙏😴"
+                ]
+            },
+            { 
+                coords: { lat: 44.636435, lng: -124.062765 },
+                date: "2025-03-21",
+                country: "USA",
+                state: "Oregon",
+                place: "Newport",
+                km: 1070, 
+                title: "Sturm, Schweiß & Schlemmerglück",
+                text: [
+                    "Nach einer königlichen Mütze Schlaf (endlich mal wieder!) war mein Schlafplatz so ruhig, dass ich ernsthaft überlegt habe, einfach für immer hierzubleiben. Aber nein, das Abenteuer ruft!",
+                    "Zum Frühstück düste ich an den Strand – klang nach einer brillanten Idee, bis ich feststellte, dass der Sturm immer noch in Bestform war. Sandstrahlung deluxe, also Plan B: Zurück in Bertha, muckelig machen und bis Mittag arbeiten. Büro mit Meerblick – so geht Work-Life-Balance!",
+                    "Nach getaner Arbeit ging’s ab ins Schwimmbad. Neben einem lauwarmen Pool (mehr Badewanne als Ozean) gab’s auch ein Fitnessstudio. Perfekt zum Auspowern und um mich für die nächste Mahlzeit zu rechtfertigen…",
+                    "Apropos Mahlzeit: Eine wohlverdiente Pizza 🍕 – knusprig, käsig, göttlich. Kein schlechtes Ende für einen stürmischen Tag.",
+                    "Und siehe da – der Wind hat sich gelegt! Mein Nachtlager diesmal direkt am Meer. Ob das die beste Idee war? Noch bereue ich nichts – aber mal sehen, ob ich morgen noch trocken bin! 🌊💨"
+                ]
+            },
+            { 
+                coords: { lat: 43.405812, lng: -124.220963 },
+                date: "2025-03-22",
+                country: "USA",
+                state: "Oregon",
+                place: "North Bend",
+                km: 1223, 
+                title: "Ein Abenteuer in Dünen",
+                text: [
+                    "Heute Morgen endlich mal ein Frühstück mit Aussicht! Der Sturm hatte sich verzogen, und ich konnte den Horizont über dem Meer sehen. Mit Kaffee in der Hand und dieser Kulisse – so startet man doch gern in den Tag.",
+                    "Arbeiten? Ach, der Laptop blieb fast zu. Die Regenpause wollte genutzt werden! Also: Wanderschuhe an und los. Nach ein paar Dutzend Kilometern Fahrt landete ich im Oregon Dunes National Park. Just in dem Moment fielen wieder erste Regentropfen.",
+                    "Die Sanddünen hatte ich komplett für mich allein. Überraschung: Niemand hatte Lust, tonnenweise Sand rauf und runter zu stapfen. Kann ich verstehen – aber genau deshalb war es genial! Nur ich, die endlosen Wellen aus Sand und der Wind, der mir ins Gesicht pfiff.",
+                    "Nach ein paar Kilometern rauf und runter durfte Bertha wieder ran. Unser Nachtlager? Ein Rastplatz, wo man legal von 20 Uhr bis 8 Uhr campen darf. Keine heimlichen Stellplatz-Tetris-Spiele, kein schlechtes Gewissen – einfach entspannen und schlafen.",
+                    "Und was steht für den Abend an? Schokolade, Netflix und ein bisschen Gitarre. Perfekte Kombi, um den Tag ausklingen zu lassen. Mal sehen, ob ich morgen die Dünen noch in den Schuhen hab! 🎸🍫🏜️"
+                ]
+            },
+            { 
+                coords: { lat: 43.105092, lng: -124.4363189 },
+                date: "2025-03-23",
+                country: "USA",
+                state: "Oregon",
+                place: "Bandon",
+                km: 1269, 
+                title: "Ein Tag voller Überraschungen",
+                text: [
+                    "Eigentlich wollte ich heute Morgen nur ein Stündchen arbeiten – vielleicht zwei. Naja… sechs Stunden später war mein Vormittag plötzlich spurlos verschwunden. Mist! 🤦‍♂️",
+                    "Bevor es weiter gegen Süden ging, habe ich noch schnell den Supermarkt geplündert und Berthas Vorratskammer wieder kampfbereit gemacht. Man weiß ja nie, wann die nächste Futterkrise droht!",
+                    "Dann kam sie – die Sonne! Strahlend, verheißungsvoll, voller Euphorie… für genau fünfzehn Minuten. Denn je weiter ich Richtung Süden rollte, desto mehr Wolken und Wind begrüßten mich. Aber immerhin: kein Regen! Kleine Siege muss man feiern. 🎉",
+                    "Nach einem kurzen Spaziergang am Strand habe ich mich wieder in Bertha zurückgezogen – mein treues mobiles Schneckenhaus. Jetzt heißt es: Reiseplanung! Wo schlafe ich heute Nacht? Vielleicht ein wilder Stellplatz? Vielleicht ein Parkplatz mit Aussicht? Vielleicht einfach da, wo ich zu müde bin, weiterzufahren? Abenteuer pur! 🚐✨"
+                ]
+            },
+            { 
+                coords: { lat: 42.3313456, lng: -124.4253019 },
+                date: "2025-03-24",
+                country: "USA",
+                state: "Oregon",
+                place: "Cape Sebastian",
+                km: 1367, 
+                title: "Sonnenschein, Surfer und Sehnsucht nach einem Board",
+                text: [
+                    "Heute gab es Sonne satt! 🌞 Und zack – sofort ein breites Grinsen im Gesicht. So fängt ein perfekter Tag an!",
+                    "Alles macht mit gutem Wetter gleich doppelt so viel Spaß: Entspannt den Highway 101 runtercruisen, zwischendurch ein paar Stopps am Strand, hier und da eine kleine Wanderung – einfach pures Roadtrip-Feeling.",
+                    "Das Meer war heute zwar ruhiger, aber die Wellen rollten trotzdem beeindruckend heran. Offenbar fanden das auch viele Surfer ziemlich geil, denn an jedem Strand wurde fleißig gesurft. Und ich? Ich stand da, schaute neidisch zu und dachte mir: Verdammt, warum habe ich kein Surfboard?! 🏄‍♂️",
+                    "Aber hey, auch ohne Surfboard war meine Euphorie auf Höchstniveau. Sommerliches Wetter, Natur, Freiheit – was will man mehr? Vielleicht morgen doch mal ein Board leihen? 😏"
+                ]
+            },
+            { 
+                coords: { lat: 42.0699622, lng: -124.3084085 },
+                date: "2025-03-25",
+                country: "USA",
+                state: "Oregon",
+                place: "Brookings",
+                km: 1399, 
+                title: "Nebel, Meer und der feierliche Start der Kurzehose-Saison",
+                text: [
+                    "Eine weitere Nacht am Highway 101 – und was für eine! Ich habe erstaunlich gut geschlafen und war fast ein bisschen schockiert, als ich auf die Uhr schaute: Schon 6:30 Uhr?! 😳 Das sanfte Rauschen des Meeres wirkt anscheinend wie ein Premium-Schlaflied.",
+                    "Doch heute Morgen gab’s eine kleine Überraschung: Nebel. Viel Nebel. Das Meer konnte man zwar hören, aber nicht sehen. Eigentlich konnte man gar nichts sehen – weder die Straße noch den Rest der Welt. Perfekte Bedingungen für ein spannendes Spiel namens „Wo ist eigentlich die Küste?“.",
+                    "Also habe ich mich mit Bertha vorsichtig zum nächsten Rastplatz vorangetastet – ganz nach dem Motto „low and slow“. Dort gab’s dann erstmal Frühstück und eine Runde Arbeiten, denn Roadtrips finanzieren sich ja nicht von selbst.",
+                    "Mit den mittlerweile 15 Grad warmen Temperaturen war es dann aber auch höchste Zeit, meinen kleinen Kühlschrank in Betrieb zu nehmen. Und, noch wichtiger: Die Kurzehose-Saison ist offiziell eröffnet! 🩳☀️",
+                    "Heute bleibe ich noch eine Nacht in Oregon, aber morgen ist es soweit: Kalifornien, ich komme! 🚐✨"
+                ]
+            },
+            { 
+                coords: { lat: 41.9887226, lng: -124.2115037 },
+                date: "2025-03-26",
+                country: "USA",
+                state: "California",
+                place: "Pelican State Beach",
+                km: 1412, 
+                title: "Sonne weg, Stimmung weg",
+                text: [
+                    "Gestern Abend habe ich noch die letzten Sonnenstrahlen aufgesogen – denn jetzt ist Schluss mit lustig! Sturmwarnung für die nächsten Tage. 🌪️🌧️ Na klasse.",
+                    "Heute habe ich den Tag also produktiv genutzt: Erst ein bisschen Home-Office, dann noch ein paar Stunden im Café. Arbeiten mit Koffeinzufuhr – läuft. ☕💻",
+                    "Zum Fahren hatte ich irgendwie keine Lust. Aber immerhin habe ich es knapp über die Grenze geschafft und am Pelican Beach geparkt. Sieht ganz nett aus hier – und das Beste? Keine „Camping verboten“-Schilder in Sicht! 😏",
+                    "Trotzdem fühle ich mich heute ein bisschen leer. Die sommerliche Euphorie ist zusammen mit der Sonne verschwunden. Aber hey, ich mach das Beste draus: Kerzenlicht, Gitarre und Netflix – der perfekte Plan für einen stürmischen Abend. 🎸🕯️📺"
+                ]
+            },
+            { 
+                coords: { lat: 41.7324544, lng: -124.2290538 },
+                date: "2025-03-27",
+                country: "USA",
+                state: "California",
+                place: "Crescent City",
+                km: 1445, 
+                title: "Auf der Flucht vor dem Sturm",
+                text: [
+                    "Was für eine Nacht! Der Sturm war so heftig, dass ich meinen Platz wechseln musste – nicht nur, weil am Pelican Beach Camping verboten ist, sondern weil es sich angefühlt hat, als würde ich gleich mitsamt Bertha abheben. 🚐💨",
+                    "Also rauf auf den guten alten Highway 101, mitten durch die stürmische Nacht. Der Wind war so stark, dass ich teilweise dachte, er pustet mich direkt wieder nach Oregon zurück. Aufregend? Absolut. Angenehm? Nicht so sehr.",
+                    "In Crescent City angekommen, habe ich mir dann irgendwo in der Stadt einen Parkplatz gesucht – was sich als Herausforderung herausstellte. Denn kaum stand ich, wurde mir in Bertha seekrank! 🤢 Der Wind hat sie so sehr geschaukelt, dass es sich angefühlt hat, als ob draußen jemand einen schlechten Scherz mit mir treibt. Nach ein paar Umpark-Versuchen habe ich endlich einen halbwegs geschützten Platz gefunden. Ich glaube, Bertha und ich waren gleichermaßen erleichtert, denn zwischendurch hatte ich ernsthaft Angst, dass mir das Dach überm Kopf abreißt. 😅",
+                    "Der Sturm hält noch bis morgen an, also keine Lust auf eine Autobahn-Achterbahnfahrt. Stattdessen gab’s heute wieder Starbucks-Office, gefolgt von einem wohlverdienten Saunabesuch – Entspannung und eine Dusche in einem. 🚿🔥",
+                    "Für die Nacht habe ich mir einen windgeschützten Platz hinter einem Supermarkt gesichert – und ich bin nicht allein. Ein paar andere Camper hatten offenbar die gleiche Idee. Gemeinsam durch den Sturm – nur jeder in seinem eigenen Schneckenhaus. 🏕️🌬️"
+                ]
+            },
+            { 
+                coords: { lat: 41.5938266, lng: -124.1003349 },
+                date: "2025-03-28",
+                country: "USA",
+                state: "California",
+                place: "Wilson Creek Beach Rest Area",
+                km: 1469, 
+                title: "Klopf, Klopf – die nächtliche Parkplatz-Odyssee",
+                text: [
+                    "Gestern Abend klopfte es mal wieder an meiner Tür – kein Besuch, den man sich wünscht. Offenbar war der Supermarkt-Parkplatz doch nicht so einladend für Übernachtungsgäste wie gedacht. Also, zurück auf die Straße. 🚐🌙",
+                    "Der Sturm ließ langsam nach, aber der Regen? Der blieb. Also hab ich den Vormittag wieder im Café verbracht – Kaffee, WLAN und trockene Füße – perfekt. ☕💻",
+                    "Als es dann nicht mehr stürmte, habe ich mich mit Bertha wieder auf den Highway 101 gewagt. Hat sich trotzdem nach Achterbahn angefühlt! Diese Straße ist alles außer gerade – S-Kurven, Absenkungen, Huckel… huuiiii! 🎢",
+                    "Morgen soll der Regen endlich vorbei sein, und ich habe mir ein Ziel gesetzt: Die Giganten des Redwood National Parks besuchen! 🌲💚 Deshalb versuche ich heute mein Glück auf einem Rastplatz kurz vor dem Park.",
+                    "Ich bin schon am Nachmittag angekommen und habe eine kurze Regenpause strategisch perfekt genutzt – ab zur Küste! Und siehe da: Es gab sogar kurz Sonne! 🌞 Ein kleines Wunder in diesem grauen Regenabenteuer. Mal sehen, was der morgige Tag bringt! 🚐✨"
+                ]
+            },
+            { 
+                coords: { lat: 41.208524, lng: -124.110166 },
+                date: "2025-03-29",
+                country: "USA",
+                state: "California",
+                place: "Humboldt Lagoons",
+                km: 1526, 
+                title: "Zeitreise im Reich der Riesen",
+                text: [
+                    "Die Nacht war friedlich – keine Bären, keine Park-Ranger, keine Aliens. Nach einem produktiven Morgen ging es voller Tatendrang los in den Redwood National Park, wo ich mich prompt in eine andere Ära katapultiert fühlte. Fehlen eigentlich nur noch ein paar Dinos, dann wäre die prähistorische Illusion perfekt gewesen – alles hier ist einfach gigantisch!",
+                    "Die Sonne ließ sich zwischendurch blicken, was nicht nur mein Herz, sondern auch mein Solarpanel und die Auto-Batterie erwärmte. Mit frischer Energie ging es auf ein paar Trails durch den Park, bevor ich mir am Strand einen wohlverdienten Kaffee gönnte – Abenteuer läuft einfach besser mit Koffein!",
+                    "Dann begann der tägliche Überlebenskampf: Suche nach einem Schlafplatz. Ein paar Kilometer weiter auf dem Highway 101 entdeckte ich eine winzige Einbahnstraße. Eine Vollbremsung später und nach einer Wendeaktion in gefühlt 20 Zügen quetschte ich mich zwischen die anderen Autos. Perfekte Tarnung – falls doch noch ein T-Rex um die Ecke kommt. 😄"
+                ]
+            },
+            { 
+                coords: { lat: 41.075694, lng: -124.14159 },
+                date: "2025-03-30",
+                country: "USA",
+                state: "California",
+                place: "Trinidad",
+                km: 1547, 
+                title: "Vom Morgenmuffel zum Staatsfeind Nr. 1",
+                text: [
+                    "Der Tag begann gemütlich – ausnahmsweise mal länger im Bett lümmeln! Nach einem entspannten Frühstück und Kaffee meldete sich allerdings die Natur mit einer anderen, eher dringenden Angelegenheit: Ich brauchte ein Klo. Also ließ ich mich von Google zum nächsten State Park lotsen, wo es eine Toilette geben sollte. Jackpot! Nicht nur gab es sie, sondern ich hatte den ganzen Park für mich allein. Draußen regnete es, also beschloss ich, einfach eine Weile zu bleiben.",
+                    "Eine Weile hielt das Glück – dann hörte ich plötzlich meinen Namen. Ich wusste sofort, was gleich passieren würde. Noch bevor es klopfte, öffnete ich die Tür und stand Ranger Thomas gegenüber, der seinen Job offenbar mit Leib und Seele lebte. Mit ernster Miene erklärte er mir, dass mein jährlicher National Park Pass hier nicht gilt und ich Eintritt zahlen müsse. Klasse.",
+                    "Nach einer weiteren Verwarnung (ich sammel die wohl jetzt?) wurde ich zum Ausgang eskortiert. Neuer Titel: Offiziell aus einem State Park rausgeworfen.",
+                    "Etwas genervt und noch leicht verwirrt fuhr ich weiter und landete schließlich auf einem Rastplatz, wo man immerhin acht Stunden parken durfte – genug Zeit, um meine Ranger-Traumata zu verarbeiten. 🚗💨"
+                ]
+            },
+            { 
+                coords: { lat: 40.644085, lng: -124.217163 },
+                date: "2025-03-31",
+                country: "USA",
+                state: "California",
+                place: "Loleta",
+                km: 1605, 
+                title: "Gruselparkplatz",
+                text: [
+                    "Die Nacht war nichts für schwache Nerven. Mein Parkplatz sah aus wie die perfekte Kulisse für einen Horrorfilm – der Ort, an dem die Hauptfigur sagt: “Ach, hier passiert schon nichts!” und dann nie wieder gesehen wird. Aber siehe da, ich habe überlebt! Kein Ranger, keine Geister, nur ich und mein wagemutiger Optimismus.",
+                    "Am Morgen schnell die Zähne geputzt, bevor doch noch eine unerwartete Gestalt auftaucht, und dann ab zum Starbucks, um den Tag produktiv zu starten. Nach ein paar Stunden Arbeit ging’s auf Vorratsmission. Bald werde ich für eine Weile keinen großen Supermarkt mehr sehen, also lieber noch mal alles auffüllen – man weiß ja nie, wann die nächste zivilisierte Mahlzeit kommt.",
+                    "Der Nachmittag stand ganz im Zeichen der Natur: ein bisschen Sonne, ein paar Vögel, ein bisschen ornithologische Hochspannung (okay, es war nett, aber jetzt auch kein Actionfilm).",
+                    "Jetzt stehe ich wieder auf einem Parkplatz, der hoffentlich nicht in die Kategorie “Hier klopft gleich ein Ranger an” fällt. Keine Verbotsschilder in Sicht – das reicht mir als Einladung. Ich riskiere es mal wieder und hoffe auf eine weitere friedliche Nacht… ohne plötzliche Plot-Twists."
+                ]
+            },
+            { 
+                coords: { lat: 40.183244, lng: -123.7777507 },
+                date: "2025-04-01",
+                country: "USA",
+                state: "California",
+                place: "Avenue of the Giants",
+                km: 1684, 
+                title: "Sirenen im Morgengrauen",
+                text: [
+                    "Die Nacht verlief ruhig – nur der Wind rüttelte gelegentlich an Bertha. Doch um 4 Uhr früh wurde ich abrupt aus dem Schlaf gerissen: Sirenen! Direkt neben mir! Ich stand senkrecht im Bett, Herzrasen inklusive. Mein erster klarer Gedanke: Tsunami-Warnung! Die Sirenen heulten weiter, eine Minute, zwei Minuten… und dann plötzlich Stille.",
+                    "Halb panisch durchsuchte ich das Internet – vor acht Stunden ein Erdbeben vor Kaliforniens Küste, aber keine offizielle Tsunami-Warnung. Trotzdem bildete ich mir ein, dass die Straße neben mir plötzlich viel befahrener war. Paranoia oder Instinkt? Keine Ahnung, aber ich wollte es nicht drauf ankommen lassen.",
+                    "Ohne Zähneputzen, ohne das Bett zu machen, startete ich den Motor und verschwand. Mein nächstes Café-Office lag vorsichtshalber etwas weiter weg von der Küste. Am Nachmittag war immer noch kein Tsunami zu sehen – vielleicht war das hier einfach die allmorgendliche 4-Uhr-Sirene von Loleta. Na dann, guten Morgen! 😅"
+                ]
+            },
+            { 
+                coords: { lat: 39.6261177, lng: -123.7846941 },
+                date: "2025-04-02",
+                country: "USA",
+                state: "California",
+                place: "Bruhel Point",
+                km: 1782, 
+                title: "Bye, Highway 101",
+                text: [
+                    "Der Morgen begann mit einem kleinen Schockmoment: Mein Jahrespass für die National Parks war spurlos verschwunden! Normalerweise hing er immer an der Windschutzscheibe – bis heute Morgen. Nach einer erfolglosen Suchaktion auf der Armaturenablage kam mir der schlimmste Gedanke: Ist er etwa in die Lüftungsschlitze gefallen?!",
+                    "Also fing ich an, die halbe Amatur abzuschrauben, bewaffnet mit meiner Handy-Kamera, um hinter die Kulissen meines treuen Vans zu blicken. Das Ergebnis: ein paar lose Schrauben, jede Menge Staub und eine gesunde Dosis Rost – aber kein Pass. Schon halb resigniert und bereit, nochmal 80 Euro für einen neuen hinzublättern, fiel mein Blick auf die äußerste Ecke des Fensters – und da war das Ding doch!",
+                    "20 Minuten später war auch die Amatur wieder an Ort und Stelle, und es konnte endlich losgehen. Heute war meine letzte Etappe auf dem Highway 101, bevor ich auf den legendären Highway 1 abbog – und der hat es echt in sich. Kurvig, steil, ohne Leitplanken – nichts für schwache Nerven. Eine echte Herausforderung für Bertha, aber wir haben es gemeistert und wurden mit einem grandiosen Blick auf das Meer belohnt.",
+                    "Dazu noch blauer Himmel und Sonnenschein – genau so habe ich mir meinen Roadtrip vorgestellt. Geil! 😎",
+                ]
+            },
+            { 
+                coords: { lat: 39.4279798, lng: -123.8084977 },
+                date: "2025-04-03",
+                country: "USA",
+                state: "California",
+                place: "Fort Bragg",
+                km: 1803, 
+                title: "Ein ungeschickter Stolperer",
+                text: [
+                    "Eigentlich wollte ich gestern Abend nur noch ganz entspannt den Sonnenuntergang genießen – romantisch, friedlich, kitschig eben. Doch dann hat mir der Rückweg einen Strich durch die Idylle gemacht: Ein unkoordiniertes Stolpermanöver später lag ich flach, Knie und Hand blutend. Autsch.",
+                    "Der heutige Tag stand daher unter dem Motto: Schonen statt Schotterpiste. Erste Amtshandlung: Den Erste-Hilfe-Kasten auffüllen. Danach ging’s unter die Dusche und an den Verbandwechsel, wie beim Profi – nur halt ohne medizinische Ausbildung.",
+                    "Da dann auch noch die saubere Unterwäsche zur Neige ging, führte mein Weg weiter in die Wäscherei. Während die Maschine ihre Runden drehte, hab ich mir nebenbei mein Frühstück gebastelt – Multitasking auf Roadtrip-Niveau.",
+                    "Mit den wichtigsten Baustellen des Tages abgehakt, durfte der Nachmittag dann wieder schön werden: ab an den Strand, Sonne auf der Haut, Füße im Sand – der Roadtrip ist vielleicht nichts für Zimperliche, aber er hat definitiv Stil. 🌞🩹🏖️"
+                ]
+            },
+            { 
+                coords: { lat: 39.3077262, lng: -123.7944278 },
+                date: "2025-04-04",
+                country: "USA",
+                state: "California",
+                place: "Mendocino",
+                km: 1818, 
+                title: "Meeres Glitzern",
+                text: [
+                    "Ein weiterer Tag voller Sonne und diesmal sogar ohne Wind – einfach herrlich! Der Morgen startete entspannt mit einem Frühstück auf dem Supermarktparkplatz, stilecht mit Blick auf Einkaufswagen, gefolgt von einem Besuch bei meiner liebsten Kaffee-Kette: Starbucks.",
+                    "Am Nachmittag ging’s dann direkt an die Küste, um dem Wellenrauschen zu lauschen und dem Meer beim Glitzern zuzusehen. Das ist Entspannung in ihrer reinsten Form – Roadtrip-Romantik deluxe.",
+                    "Zwar blieb der Sonnenuntergang heute hinter einer Wolkenwand versteckt, aber das Meer war trotzdem schön – und irgendwie hat die Stimmung auch so gepasst.",
+                    "Für die Nacht habe ich mir wieder einen unauffälligen Straßenparkplatz gesucht – so unauffällig wie möglich eben, wenn man mit Bertha unterwegs ist."
+                ]
+            },
+            { 
+                coords: { lat: 39.033569, lng: -123.688297 },
+                date: "2025-04-05",
+                country: "USA",
+                state: "California",
+                place: "Irish Beach",
+                km: 1858, 
+                title: "Wald, Wellen und Wochenend-Vibes",
+                text: [
+                    "Ich weiß nicht, ob’s am Wochenende liegt oder einfach daran, dass die Sonne gerade alles besser macht – aber die Tage fühlen sich einfach nur richtig geil an! Noch vor dem Wecker wach geworden, habe ich mich gleich ein bisschen im Bettchen an die Arbeit gemacht. Erst die Pflicht, dann das Vergnügen – und das startete mit einem ausgedehnten Frühstück.",
+                    "Danach war mal wieder eine Wanderung fällig, diesmal nicht am Meer entlang, sondern durch den Wald, immer am plätschernden Bach entlang. Mein Schrittzähler hatte endlich mal wieder was zu tun und war sichtlich begeistert.",
+                    "Den Nachmittag habe ich dann – wie es sich für so einen Tag gehört – am Strand geparkt, mit Blick aufs Meer, Sonne im Gesicht und Wellenrauschen im Ohr. Nebenbei habe ich ein bisschen an einem kleinen Hobby-Projekt gebastelt, das mich dann irgendwie komplett eingesogen hat. Plötzlich war die Sonne weg – upsi.",
+                ]
+            },
+            { 
+                coords: { lat: 38.854801, lng: -123.651512 },
+                date: "2025-04-06",
+                country: "USA",
+                state: "California",
+                place: "Gallaway",
+                km: 1882, 
+                title: "Ein Tag für die To-do-Liste",
+                text: [
+                    "Viel ist heute nicht passiert – zumindest nicht außerhalb meines Vans. Mein „kleines“ Hobby-Projekt hat sich nämlich als ganz schön großer Zeitfresser entpuppt und mich den ganzen Tag beschäftigt. Aber: Erfolgreich abgeschlossen, To-do abgehakt, Selbstzufriedenheit auf Maximum.",
+                    "Bevor der Tag sang- und klanglos in die Nacht rollen konnte, meldete sich dann doch noch die Realität: Trinkwasser leer. Nach ein paar abgeklapperten Ortschaften hatte ich endlich Glück – frisches Wasser für mich und Bertha.",
+                    "Jetzt fehlt nur noch mein Klassiker: ein Parkplatz, möglichst unauffällig, möglichst ruhig – der Alltags-Schlussstein jedes Camperabenteuers.",
+                ]
+            },
+            { 
+                coords: { lat: 38.598833, lng: -123.34971 },
+                date: "2025-04-07",
+                country: "USA",
+                state: "California",
+                place: "Fisk Mill Cove",
+                km: 1924, 
+                title: "Geisterfahrer",
+                text: [
+                    "Der frühe Vogel fängt den Wurm... oder erledigt erst mal Arbeit, bevor die Welt erwacht! 😅 Pünktlich zum spektakulären Sonnenaufgang gab's dann Kaffee mit Aussicht 🌅 – der perfekte Start in den Vanlife-Tag.",
+                    "Nachmittags lockte die Küste mit tosenden Wellen. Die heimlichen Stars waren aber ein paar Robben... die allerdings eher im Tiefschlaf-Modus verharrten. Gähn 😴. Action sieht anders aus! Zwischendurch hab ich neidisch ein paar Villen beäugt, in denen Leute mit Meerblick am Laptop saßen – was für ein Büro! 😉",
+                    "Genug geträumt, weiter ging die Jagd nach dem perfekten Nachtlager. Die wurde jäh unterbrochen, als ein Held der Gegenfahrbahn meine Spur wohl attraktiver fand und fast für eine unfreiwillige Van-Fusion sorgte! 😱 Mein Herz raste schneller als der Motor!",
+                    "Nach diesem Adrenalin-Kick hab ich den Van in die erstbeste Parkbucht manövriert. Ob das hier erlaubt ist? Schulterzucken. Nach der Nahtoderfahrung ist mein Bedürfnis nach Weiterfahren jedenfalls auf Null gesunken. Zeit, die Beine hochzulegen und zu hoffen, dass die Nacht ruhig bleibt! 🌙"
+                ]
+            },
+            { 
+                coords: { lat: 38.355351, lng: -123.066027 },
+                date: "2025-04-08",
+                country: "USA",
+                state: "California",
+                place: "Salmon Creek",
+                km: 1972, 
+                title: "Kurvenrausch",
+                text: [
+                    "Die Nacht war himmlisch ruhig – keine neugierigen Klopfer, keine ungebetenen Gäste. Mission 'unentdeckt bleiben': erfolgreich! 😅 Noch vor den ersten Sonnenstrahlen saß ich also wieder mit meinem treuen Laptop da, bereit, die digitale Welt zu erobern.",
+                    "Nach dem obligatorischen Sonnenaufgangs-Frühstück ging's auf die Piste. Und was für eine! Der Highway schlängelte sich wie eine Seeschlange an der Küste entlang, Kurve um Kurve. Die Aussicht? Atemberaubend! Meer zur einen, Klippen zur anderen Seite, darüber waberten Wolkenfetzen – es fühlte sich fast an, als würde ich schweben! 🌊 Konzentration war gefragt, um nicht unfreiwillig zum Klippenspringer zu werden!",
+                    "Mission Vorratsauffüllung gestaltete sich schwieriger. Supermärkte? Fehlanzeige. Stattdessen gab's Tante-Emma-Läden mit Goldrandpreisen (Erdnussbutter für 20€? Nein danke!). Also weiter, mit knurrendem Magen und bedenklich sinkender Tankanzeige... hm. 🤔",
+                    "Beim Ausparken vom Wucher-Laden passierte es dann: Bertha traf auf einen sehr stabilen Poller. Rückwärts. Ergebnis: Delle im Reserverad und der Halterung. Mist! 🙈",
+                    "Nach dieser Aktion brauchte ich erstmal Meeresrauschen. Den Rest des Tages verbringe ich jetzt am Strand und warte auf den Sonnenuntergang – hoffentlich ohne weitere Blechschäden! 🌅"
+                ]
+            },
+            { 
+                coords: { lat: 38.091147, lng: -122.824509 },
+                date: "2025-04-09",
+                country: "USA",
+                state: "California",
+                place: "Bivalve",
+                km: 2021, 
+                title: "Friedliche Szenerie",
+                text: [
+                    "Heute lief alles wie am Schnürchen – ein richtig entspannter Tag im Vanlife-Paradies! ✅ Die wichtigsten Missionen sind erfüllt: Wassertank randvoll, Benzintank gluckst zufrieden, die Vorräte sind aufgestockt und die Arbeit am Laptop ging locker von der Hand. So muss das!",
+                    "Die Gegend hier ist einfach Balsam für die Seele. Alles so friedlich, und die Vögel zwitschern aus vollem Halse ihr schönstes Lied 🎶. Mein persönliches Highlight: Ein winziger Kolibri schwirrte vorbei. Cooler Vogel, sag ich nur!",
+                    "Auch die Straße hatte heute wieder Kurven-Charme. Diesmal schlängelte sie sich malerisch an einer Bucht entlang. Die Szenerie war wie ausgewechselt – als hätte jemand einfach den Landschafts-Kanal umgeschaltet! 📺 Herrlich!",
+                    "Für die Nacht hab ich's mir jetzt wieder strategisch günstig in einer Parkbucht gemütlich gemacht, natürlich mit bestem Bucht-Blick. Auffällig unauffällig, versteht sich. 😉 Mal sehen, was der morgige Tag bringt!"
+                ]
+            },
+            { 
+                coords: { lat: 38.0712749, lng: -122.8066944 },
+                date: "2025-04-10",
+                country: "USA",
+                state: "California",
+                place: "Point Reyes Station",
+                km: 2026, 
+                title: "Ruhe vor dem Sturm",
+                text: [
+                    "Heute legte die Abenteuerlust mal eine kleine Pause ein. Kein Strand weit und breit, und die Sonne? Hat sich hinter einer dicken Wolkendecke versteckt. 🌥️ Mein Tages-Gipfel war daher eindeutig kulinarischer Natur: Ein vegetarischer Burrito zur Mittagszeit, der die Geschmacksknospen jubeln ließ! 🌯😋 Das war er, der Höhepunkt des Tages!",
+                    "Nachdem das digitale Tageswerk pflichtbewusst erledigt war, versank ich für gefühlte Ewigkeiten (oder waren es nur ein paar Stunden? 🤔) in der Routenplanung. Der Grund: San Francisco rückt näher! Wie navigiere ich Bertha sicher durch den Großstadtdschungel? Wo parken? Wo schlafen, ohne Ärger zu bekommen? Fragen über Fragen – das wird ein eigenes kleines Abenteuer! 🏙️🚐",
+                    "Aber bevor die Stadt ruft, steht morgen erstmal eine Wanderung an, um den Kopf freizukriegen 🌲, und übermorgen wird das Büro wieder an den Strand verlegt. 💻🌊 Man gönnt sich ja sonst nichts! 😉" 
+                ]
+            },
+            { 
+                coords: { lat: 38.0407974, lng: -122.798343 },
+                date: "2025-04-11",
+                country: "USA",
+                state: "California",
+                place: "Point Reyes National Seashore",
+                km: 2031, 
+                title: "Spaziergang im Park",
+                text: [
+                    "Nach einem gemütlichen Frühstück hieß es heute: Abenteuerzeit im Nationalpark! Die Wanderschuhe wurden geschnürt für eine geplante Tour, die dann... sagen wir mal... etwas eskalierte. 😅 Aus den geplanten 20 wurden sportliche 25 Kilometer!",
+                    "Fast 5 Stunden später und kurz bevor die Beine endgültig den Dienst quittierten 🥵, war ich endlich wieder bei meiner treuen Bertha. Der Nachmittag gehörte dann erstmal der horizontalen Erholung – Füße hoch und im Van abhängen war dringend nötig!",
+                    "Die Idylle hat nur einen Haken: Mein kuscheliger Parkplatz im Grünen ist leider nur auf Zeit. Übernachten im Nationalpark? Streng verboten! 🚫 (Wie gefühlt überall hier in den USA...). Also heißt es später wieder: Zurück auf den Highway 1 und die altbekannte Jagd nach einer unauffälligen, hoffentlich legalen (oder zumindest tolerierten) Parkbucht für die Nacht beginnt."
+                ]
+            },
+            { 
+                coords: { lat: 37.869926, lng: -122.589987 },
+                date: "2025-04-12",
+                country: "USA",
+                state: "California",
+                place: "Muir Beach",
+                km: 2045, 
+                title: "Zündungs-Zoff",
+                text: [
+                    "Der Morgen startete nach bekanntem Vanlife-Schema: Zähneputzen mit Ausblick, dann ab auf den Highway 1 Richtung Küste. Die Straße? Mal wieder ein absoluter Traum, wie sie sich am Meer entlangwand! Mein Adlerauge erspähte DIE perfekte kleine Bucht – wie gemacht für ein Sonnenaufgangsfrühstück! 🌅 Gesagt, getan, geschlemmt.",
+                    "Doch die Idylle hatte einen Haken: Bertha fand den Platz anscheinend zu gut und verweigerte den Start. Déjà-vu! 🙄 Okay, Plan B: Starlink raus, Arbeit rein. Eine Stunde später: Bertha? Nö. Na gut, dann eben die Beine vertreten – auch wenn die vom Vortag noch laut protestierten! 🚶‍♂️",
+                    "Drei Stunden später... immer noch Stille unter der Haube. Oh Mann. Also wieder Starlink an und den Nachmittag (ungeplant) in der Bucht verbracht. Immerhin war die Aussicht grandios, man muss ja das Positive sehen! 😉",
+                    "Vier weitere Stunden später, neuer Versuch: Zündung an... Bertha zögert. Ich trete das Gaspedal durch, als gäb's kein Morgen mehr! Nach kurzem, widerwilligem Stottern erwachte die Diva endlich zum Leben! 💪 Vroom!",
+                    "Nach unserer kleinen Meinungsverschiedenheit rollten wir dann endlich weiter, auf der Suche nach einem Nachtquartier. 😅"
+                ]
+            },
+            { 
+                coords: { lat: 37.86177, lng: -122.492973 },
+                date: "2025-04-13",
+                country: "USA",
+                state: "California",
+                place: "Sausalito",
+                km: 2060, 
+                title: "Großstadt-Vibes",
+                text: [
+                    "Heute war offizieller Chill-Modus angesagt! 🧘 Die To-Do-Liste? Angenehm leer. Hauptbeschäftigung: Löcher in die Luft starren und das Vanlife genießen. Herrlich!",
+                    "Man merkt aber deutlich: Die Zivilisation holt mich ein! 😅 Die Parkplätze und Wanderwege platzen aus allen Nähten. Mein innerer Fluchtinstinkt meldet sich schon wieder zu Wort und flüstert was von \"weiter weg\".",
+                    "Aber hilft ja nix, denn morgen wartet das nächste Abenteuer: San Francisco! 🌉 Der Plan steht: Bertha in Sausalito parken, entspannt mit der Fähre rüber schippern und vielleicht – nur vielleicht – zu Fuß über die legendäre Golden Gate Bridge zurück. Mal sehen, was die Waden dazu sagen!",
+                    "Fast hätte ich 20 Taler für ein Tagesticket in Sausalito hingeblättert, da fiel mein Blick auf den heiligen Gral: Ein kostenloser Parkplatz ohne Zeitlimit, nur einen Katzensprung entfernt! Jackpot! 🥳 Okay, der Highway rauscht quasi direkt an meinem Kopfkissen vorbei, aber hey – für zwei Nächte nehm ich das Brummen gern in Kauf. Gratis ist gratis! SF, ich komme!"
+                ]
+            },
+            { 
+                coords: { lat: 37.86177, lng: -122.492973 },
+                date: "2025-04-14",
+                country: "USA",
+                state: "California",
+                place: "Sausalito",
+                km: 2060, 
+                title: "San Francisco",
+                text: [
+                    "Wer hätte das gedacht? Die Nacht direkt am Highway war ruhiger als erwartet – ab Mitternacht herrschte himmlische Stille neben meinem Kopfkissen! 😴 Nach dem obligatorischen (frühen!) Meeting mit der Heimat-Crew und einem schnellen Frühstück war es dann Zeit für die Großstadt: San Francisco, ich komme!",
+                    "Auf dem Weg zur Fähre stolperte ich quasi über ein Stück Heimat: Ein Camper mit deutschem Kennzeichen! 🇩🇪 Natürlich musste ich Andrea und Jürgen anquatschen, die gerade frühstückten. Ihre Story? Episch! Van vor 2 Jahren nach Argentinien verschifft, hoch bis Alaska gefahren und jetzt gemütlich wieder Richtung Süden. Hut ab vor diesen Rentner-Nomaden! 🗺️",
+                    "Nach dem netten Plausch wollte ich die Fähre erwischen... die mir leider elegant vor der Nase davonfuhr. 😅 Und die Nächste? Erst in zwei Stunden? Okay, Plan B: Der Bus! Der kam zum Glück schon in 40 Minuten.",
+                    "Und was soll ich sagen? SF ist ein faszinierender Schmelztiegel! Mit dem Bus ging's über die (leider etwas nebelige) Golden Gate Bridge, dann durch den riesigen Golden Gate Park, rein ins bunte Treiben von Chinatown und schließlich zum Hafen, wo ich die Fähre zurück nach Sausalito nahm. ⛴️ Mein heimliches Ziel, DIE Hauptattraktion der Stadt klar zu sehen, fiel leider buchstäblich ins Wasser – oder besser gesagt, in dichten Nebel. ☁️ Schade! Aber trotzdem ein super Tag voller neuer Eindrücke!"
+                ]
+            },
+            { 
+                coords: { lat: 37.551611, lng: -122.512557 },
+                date: "2025-04-15",
+                country: "USA",
+                state: "California",
+                place: "Montara",
+                km: 2100, 
+                title: "Der Goldene Triumph",
+                text: [
+                    "Heute war der große Tag! Mission: Golden Gate Bridge mit Bertha! 🤩 Ein absolut epischer Moment, als wir über das rote Wahrzeichen rollten – und das Beste: Mama und Papa waren via Live-Stream quasi als virtuelle Beifahrer dabei!",
+                    "Da der berüchtigte Nebel heute gnädiger war, gab's als Zugabe noch einen Fotostopp. Ein paar letzte, ehrfürchtige Blicke auf diese Ikone mussten einfach sein! 📸",
+                    "Danach stürzten wir uns (mehr oder weniger freiwillig) in die morgendliche Rush Hour von San Francisco. Stop-and-go, Ampel-Hopping... gefühlt eine Ewigkeit! Das Highlight war dann die 6-spurige Autobahn, auf der ich Bertha irgendwie heldenhaft von ganz links nach ganz rechts manövrieren musste. Purer Nervenkitzel! 😅",
+                    "Den Nachmittag verbrachte ich zur Erholung (und zum Arbeiten) im gemütlichen Schutz eines Cafés. 💻☕",
+                    "Und jetzt? Bin ich ehrlich gesagt ziemlich froh, den Großstadt-Dschungel im Rückspiegel zu sehen. Der Trubel ist cool, aber die Ruhe der Küste ist cooler! Auf zu neuen Ufern und entspannteren Abenteuern! 🌊"
+                ]
+            },
+            { 
+                coords: { lat: 37.225599, lng: -122.408875 },
+                date: "2025-04-16",
+                country: "USA",
+                state: "California",
+                place: "Bean Hollow State Beach",
+                km: 2142, 
+                title: "Der Nacht-Schatten",
+                text: [
+                    "Die Nacht war fast schon verdächtig ruhig... bis Rascheln und Knacken direkt neben Bertha mein Adrenalin weckten! 😱 Puls auf 180, Fluchtplan schon im Kopfkino parat. Raus traute ich mich nicht – viel zu dunkel! Also blieb nur der Spionageblick in den Seitenspiegel. Erst nur Schwärze, dann... ein dunkler Schatten hinterm Van! Nach kurzem Augen-Zusammenkneifen die Erleichterung: Nur ein Nachzügler-Camper, der sein Nachtlager aufschlug. Puh! 😅 Falscher Alarm, zurück ins Land der Träume.",
+                    "Der heutige Tag war das pure Kontrastprogramm: Entspannung pur am Strand! 🏖️ Füße auf dem Armaturenbrett, Laptop auf dem Schoß – eine gute Mischung aus Chillen und ein bisschen notwendiger Arbeit. 💻",
+                    "Zwei Dinge sind mir heute aber besonders aufgefallen: Erstens, viele der schönen Strände hier lassen sich ihren Zugang was kosten (Gebührenpflicht ahoi!). Und zweitens: Die Fliegen werden nicht nur mehr, sondern auch richtig aufmüpfig! 🦟 Diese kleinen Biester kennen echt keine Privatsphäre mehr und summen frech um die Nase. Naja, gehört wohl zum Abenteuer dazu!"
+                ]
+            },
+            { 
+                coords: { lat: 37.097133, lng: -122.280455 },
+                date: "2025-04-17",
+                country: "USA",
+                state: "California",
+                place: "Big Basin Redwoods State Park",
+                km: 2161, 
+                title: "Baumsturzgefahr",
+                text: [
+                    "Die Nacht war himmlisch ruhig... mal abgesehen von der Frosch-Orgie, die direkt neben meinem Van ein lautstarkes Konzert gab 🐸. Erholsam war's trotzdem!",
+                    "Der Tag selbst plätscherte dann wieder entspannt am Strand dahin: Frühstück mit Meerblick ☕, ein paar produktive Stunden am Laptop 💻 und schließlich Mittagessen mit Sand zwischen den Zehen. Auffällig war die hohe Dichte an Surf-Enthusiasten, die sich schon seit den frühen Morgenstunden wagemutig in die Wellen stürzten 🏄‍♂️.",
+                    "Da wollte ich mir auch etwas die Beine vertreten und peilte eine kleine Wanderung im angrenzenden Park an. Dumm nur, dass der wegen Baumsturzgefahr gesperrt war. Aber hey, wo kein Zaun, da ein Weg, dachte ich mir und ignorierte das Verbotsschild gekonnt 😎. Die Rechnung kam prompt: Nur 10 Minuten später stand ein Ranger vor mir und geleitete mich freundlich, aber bestimmt zurück zum Parkplatz. Tja, Pech gehabt! Immerhin: Ein paar Schritte für die Statistik gab's trotzdem! 😉"
+                ]
+            },
+            { 
+                coords: { lat: 36.958012, lng: -122.038301 },
+                date: "2025-04-18",
+                country: "USA",
+                state: "California",
+                place: "Santa Cruz",
+                km: 2180, 
+                title: "Den Anker ausgeworfen",
+                text: [
+                    "Landfall in Santa Cruz! 🤩 Dieser Küstenort markiert das offizielle Ende meiner ersten Roadtrip-Etappe. Ab jetzt zeigt die Kompassnadel ins Landesinnere – Yosemite, Yellowstone, Grand Canyon und unzählige Abenteuer warten! 🗺️",
+                    "Aber Eile? Fehlanzeige! Ich habe beschlossen, hier in Santa Cruz für ein paar Tage (oder Wochen?) meinen Anker auszuwerfen und die Batterien aufzuladen.",
+                    "Der Vormittag war daher der Mission \"Operation Santa Cruz Basecamp\" gewidmet. Drei Stunden lang erkundete ich das Terrain: Wo kann Bertha sicher stehen? Wo gibt's gutes WLAN zum Arbeiten? Wo finde ich Dusche, Klo und die lebensnotwendigen Erdnussbutter-Vorräte? 🤔",
+                    "Und siehe da: Das Universum meint es gut mit mir! Alles, was das Vanlifer-Herz begehrt, liegt im Umkreis von nur 500 Metern: Ein Starbucks und eine Bibliothek, ein Supermarkt und – der heilige Gral – ein kostenloser Parkplatz ohne Zeitlimit! Jackpot! 🎯 Als Krönung meiner temporären Einbürgerung habe ich mir noch eine Monatsmitgliedschaft im 24-Stunden-Fitnessstudio gegönnt. 💪 Santa Cruz, ich glaube, wir werden uns gut verstehen!"
+                ]
+            },
+            { 
+                coords: { lat: 37.065677, lng: -121.220385 },
+                date: "2025-05-11",
+                country: "USA",
+                state: "California",
+                place: "San Luis Reservoir",
+                km: 2279, 
+                title: "Aufbruchstimmung: Von Palmen zu Gipfeln!",
+                text: [
+                    "Der Highway hat mich wieder! 🛣️ Nach der XXL-Pause fühlt es sich einfach grandios an, wieder hinterm Lenkrad zu sitzen und mit Bertha über den Asphalt zu cruisen.",
+                    "Mein Santa-Cruz-Masterplan ist voll aufgegangen! Knapp drei Wochen stand Bertha treu neben einer Palme in der Palm Street – mein kleines, temporäres Zuhause. Die Routine hatte mich schneller wieder, als ich 'Vanlife' sagen konnte, und ehrlich gesagt, ein bisschen vermisst hatte ich sie ja schon. ☕️ Zum Surfen oder Tauchen hat's leider nicht gereicht – stattdessen hat mich ein neues Programmier-Projekt in seinen Bann gezogen, das mich bis heute nicht loslässt. 💻",
+                    "Neben meinen täglichen Ritualen – Fitnessstudio-Besuch 💪 und Koffein-Kick bei Starbucks – zog es mich natürlich auch oft ans Meer. So richtig allein war man da aber nie, eher Ostsee-Feeling als einsame Bucht. 🌊 Zum Trost gab's aber immerhin spektakuläre Surfer-Action und brütende Kormorane zu bestaunen.",
+                    "Nach einem letzten, wehmütigen Blick auf den Pazifik 🌅 geht's jetzt mit Volldampf Richtung Nord-Westen. Ziel: Yosemite National Park! Ein bisschen traurig bin ich schon, meinen stetigen blauen Begleiter hinter mir zu lassen, aber neue Abenteuer und vielleicht neue Weggefährten warten schon. Am Horizont kann ich die majestätischen Berge bereits erahnen! 🏔️"
+                ]
+            },
+            { 
+                coords: { lat: 37.488319, lng: -119.969833 },
+                date: "2025-05-12",
+                country: "USA",
+                state: "California",
+                place: "Mariposa",
+                km: 2435, 
+                title: "Highway-Hypnose",
+                text: [
+                    "Uff, die Autobahn-Nächte hatte ich schon fast erfolgreich verdrängt – ein echter Geräusch-Cocktail! 😴 Für ein paar Stunden Schlaf hat's aber gereicht, und pünktlich zum Panorama-Sonnenaufgang 🌅 saß ich wieder am Steuer, bereit für neue Kilometer.",
+                    "Die heutige Autobahn? Das krasse Gegenteil zur Küsten-Kurverei! Auf 100 Kilometern musste ich gefühlt dreimal lenken: einmal links, einmal rechts, und dann wieder links... gähn. 🛣️ Die Kunst des Geradeausfahrens wurde heute perfektioniert!",
+                    "Die Landschaft wechselte von eher monotonen Obstplantagen zu faszinierender, weiter Graslandschaft, bis schließlich die ersten Ausläufer des Vorgebirges vom Yosemite National Park am Horizont auftauchten. 🏔️ Es ist nicht mehr weit, und meine Vorfreude auf dieses Naturwunder steigt mit jedem Kilometer! Ich bin gespannt!"
+                ]
+            },
+            { 
+                coords: { lat: 37.488319, lng: -119.969833 },
+                date: "2025-05-13",
+                country: "USA",
+                state: "California",
+                place: "Mariposa",
+                km: 2435, 
+                title: "Kikeriki & Kühler-Krimi",
+                text: [
+                    "Die Nacht war eine Oase der Ruhe, bis ein Hahn meinte, er müsse den Sonnenaufgang persönlich ankündigen. 🐔 Deutlich charmanter als ein Wecker – und meilenweit besser als ein Klopfen vom Ranger!",
+                    "Heute stand alles im Zeichen meiner treuen Bertha. Beim glücklicherweise ergatterten Ölwechsel-Termin dann die Hiobsbotschaft: eine neue Undichtigkeit macht sich breit, diesmal wohl die Zylinderkopfdichtung. Diagnose: teuer! 💸 Kurze Schockstarre bei der Kostenschätzung von ca. 2000 Euro. Autsch! 😬",
+                    "Aber nach kurzer Recherche stieß ich auf ein Wundermittelchen für 40 Euro, das man einfach in den Kühler kippt und das angeblich Lecks versiegelt. Ab zum nächsten Autoteile-Shop, her mit dem Zaubertrank! Ein bisschen mulmig war mir schon, als ich die grau-silberne Pampe in Berthas Kühlsystem goss. 🧪 Aber Anweisung ist Anweisung! Morgen steht die ultimative Reifeprüfung an: rund 800 Höhenmeter wollen bezwungen werden. Ob der Kühler hält oder mit einem Knall den Geist aufgibt? Es wird spannend! 🤞"
+                ]
+            },
+            { 
+                coords: { lat: 37.73469, lng: -119.562026 },
+                date: "2025-05-14",
+                country: "USA",
+                state: "California",
+                place: "Yosemite National Park",
+                km: 2507, 
+                title: "Kühler-Triumph",
+                text: [
+                    "Ein Bilderbuch-Start in den Tag: Erst der wöchentliche Video-Plausch mit den Kollegen in der Heimat 🇩🇪, dann die atemberaubende Panoramafahrt ins Yosemite Valley! Die Anspannung wegen Berthas Kühler? Verflogen! Meine treue Begleiterin hat mich souverän ans Ziel gebracht – auch wenn sie nach dem Ölwechsel nicht gerade zum Rennpferd mutiert ist. 🐢",
+                    "Dass Yosemite berühmt ist, merkt man an den Campingplätzen, die Monate im Voraus ausgebucht sind. Doch das Vanlife-Universum meinte es mal wieder gut mit mir: Gestern noch einen der begehrten 400 Plätze ergattert – wenn auch leider nur für eine Nacht. Jackpot! 🏕️",
+                    "Heute stand eine kleine \"Probewanderung\" auf dem Programm. Der tosende Yosemite Wasserfall (einer von vielen hier!) war schon mal ein Vorgeschmack. Und dann: Bären-Alarm! 🐻 Ein stattlicher Braunbär kreuzte meinen Weg, musterte mich kurz und trollte sich dann gemütlich weiter. Mehr Interesse hatte er wohl an Beeren als an mir. Puh!",
+                    "Morgen wird's ernst: DIE Wanderung zum Half Dome steht an! Ganz auf den Gipfel geht's leider nicht, da der Klettersteig noch Winterschlaf hält. Aber knapp 30 Kilometer mit ordentlich Höhenmetern werden's trotzdem. Die Waden sind schon gespannt! 💪"
+                ]
+            },
+            { 
+                coords: { lat: 37.488319, lng: -119.969833 },
+                date: "2025-05-15",
+                country: "USA",
+                state: "California",
+                place: "Mariposa",
+                km: 2579, 
+                title: "Yosemite-Marsch",
+                text: [
+                    "Geschlafen wie ein Stein! Punkt 4:57 Uhr, exakt drei Minuten bevor der Wecker überhaupt eine Chance hatte, mich aus dem Reich der Träume zu reißen, waren die Äuglein wieder offen. 😴 Um Punkt 7 Uhr stand ich dann, topmotiviert, auf dem legendären John Muir Weg. Einige Kilometer und unzählige Höhenmeter schlängelte ich mich durch das wunderschöne Yosemite Valley. 🌲",
+                    "Aber heute hab ich's wohl übertrieben und mich etwas verschätzt! Irgendwann signalisierten meine Beine ganz klar: \"Chef, wir machen Feierabend!\" Der Rückweg zu Bertha wurde zum epischen Kampf Mann gegen Muskelkater. 🦵💥 Oh, diese himmlische Erleichterung, als ich mich endlich ins Bett fallen lassen konnte!",
+                    "Leider war mit einer weiteren Nacht hier nichts zu machen – kein freier Platz mehr für mich und Bertha. Also hieß es schweren Herzens Abschied nehmen vom Yosemite. Mir graut schon vor morgen... ich glaube, ich parke Bertha direkt neben einem Rollstuhlverleih. ♿️ Das wird was!"
+                ]
+            },
+            { 
+                coords: { lat: 36.993641, lng: -120.095071 },
+                date: "2025-05-16",
+                country: "USA",
+                state: "California",
+                place: "Madera",
+                km: 2667, 
+                title: "Wüsten-Vorglühen",
+                text: [
+                    "Der Tag begann... naja, er kroch eher mühsam daher. 😴 Die Nacht war ein einziger Ringkampf mit meiner Matratze, denn meine Oberschenkel schrien lauter als jeder Wecker von der gestrigen Yosemite-Heldentat. Liegen? Eine Qual!",
+                    "Als wäre das nicht genug, gesellten sich noch fiese Kopfschmerzen dazu – Diagnose: Dehydration, obwohl ich gestern gefühlt einen ganzen See (ca. 5 Liter!) getrunken hatte. 🤕 Scheint, als hätte mein Körper das Wasser direkt wieder rausgeschwitzt.",
+                    "Jammern hilft ja bekanntlich wenig (außer kurzfristig). Nach einem Power-Nap, der eher einem Koma ähnelte, hab ich mich also wieder hinters Steuer geschwungen. Neues Ziel auf der Karte: Viva Las Vegas! 🎰 Bei meinem aktuellen Tempo (Schnecke im Rückwärtsgang) dürfte das noch knackige drei Tage dauern.",
+                    "Und es wird HEISS! Mein Thermometer zeigte heute schon schweißtreibende 30 Grad an, und das ist wohl erst der Aperitif für die Wüstenhitze. 🔥 Ich erwische mich dabei, wie ich sehnsüchtig an die kühlen, regnerischen Tage an der Westküste zurückdenke. Verrückt, oder? ☔️"
+                ]
+            },
+            { 
+                coords: { lat: 35.374889, lng: -119.034023 },
+                date: "2025-05-17",
+                country: "USA",
+                state: "California",
+                place: "Bakersfield",
+                km: 2881, 
+                title: "Deadline-Druck",
+                text: [
+                    "Mein innerer Buchhalter hat gestern Alarm geschlagen: Noch ca. 3300 km in 23 Tagen! 😱 Das sind stramme 144 km täglich, um pünktlich aus den USA zu verschwinden. Da hab ich in Santa Cruz wohl eine Woche zu tiefenentspannt gechillt.",
+                    "Also: Auf zur Kilometer-Fress-Challenge die nächsten Tage! Viel zu sehen gibt's hier eh nicht – die Landschaft ist ein endloses Band aus... Nichts. 🌵 Das aufregendste Ereignis ist, wenn die Autobahn mal wagt, eine leichte Kurve zu machen.",
+                    "Viel passiert ist heute also nicht. Das Tages-Highlight war die morgendliche Dusche – ein wahrer Luxus! ✨ Highlight Nummer zwei: Mein treuer Lautsprecher hat den Geist aufgegeben. 🔇 Die endlosen Geraden werden jetzt also in meditativer Stille genossen... Und als wäre das nicht genug, zickt mein Kühlschrank rum und blinkt geheimnisvoll 'F1'. Was auch immer das heißen mag – nach einer nächtlichen Zwangspause ist er meist wieder gnädig. Vorerst."
+                ]
+            },
+            { 
+                coords: { lat: 34.900345, lng: -116.889566 },
+                date: "2025-05-18",
+                country: "USA",
+                state: "California",
+                place: "Barstow",
+                km: 3105, 
+                title: "Wüste, Wind und Wampe voll!",
+                text: [
+                    "Die Landschaft hat sich wieder getoppt! 🌵 Dachte ich, langweiliger geht's nicht, belehrt mich die Wüste eines Besseren: Keine Bäume mehr, nur... nichts. Endlose, karge Leere, soweit das Auge reicht. Ein schattiges Plätzchen zu finden, wird hier zur Mission Impossible (mangels Bäumen, logisch!). ☀️ Zum Glück sorgt ein steter Wind dafür, dass Bertha nicht zur finnischen Sauna mutiert.",
+                    "Sich zum Weiterfahren auf diesen schnurgeraden Autobahnen zu zwingen, ist ein echter mentaler Kampf. Aber es hilft ja nix, durch diese Sandkiste muss ich durch – und ewig bleiben will ich hier definitiv nicht. Nach weiteren 200 zähen Kilometern dann der kleine Triumph: Der südlichste Punkt meines Roadtrips ist erreicht! Ab jetzt geht's nur noch bergauf – oder besser gesagt, nordwärts! 🧭",
+                    "Zum krönenden Abschluss des Tages gab's dann einen Boxenstopp bei Peggy Sue's 50s Diner – eine Legende! Und weil man sich ja sonst nichts gönnt (außer endloser Freiheit): Riesen-Milchshake, deftiger Hackbraten mit Kartoffelbrei und als Sahnehäubchen noch Kuchen mit zwei Kugeln Vanilleeis. 🍨 Man war ich danach pappsatt und bereit für die Koje!"
+                ]
+            },
+            { 
+                coords: { lat: 35.8210842, lng: -115.5141778 },
+                date: "2025-05-19",
+                country: "USA",
+                state: "Nevada",
+                place: "Las Vegas",
+                km: 3303, 
+                title: "Wüsten-Zauber vor Vegas",
+                text: [
+                    "Der frühe Vogel fängt den Kilometer... oder so ähnlich! Noch bevor die Wüstensonne richtig zubeißen konnte ☀️, spulte ich die ersten 100km ab – Frühstücks-Location-Scouting inklusive, denn die Mission lautete: Finde den Schatten!",
+                    "Und siehe da, mein Spürsinn wurde belohnt! Ein einzelnes, aber stattliches Bäumchen 🌳 bot mir bis zum späten Nachmittag Asyl vor der Gluthitze. Trotzdem kletterte das Thermometer in Bertha auf schweißtreibende 35 Grad. Puh!",
+                    "Als die Sonne meinen kostbaren Schattenplatz dann doch eroberte, hieß es: weiter geht's! Die zweite Tagesetappe führte mich bis kurz vor die glitzernden Tore von Las Vegas. Für die Nacht hab ich mir ein Traumplätzchen mitten in der Wüste gesichert – diesmal mit grandiosem 360-Grad-Bergblick. 🏜️🏔️"
+                ]
+            },
+            { 
+                coords: { lat: 35.7114129, lng: -114.484413 },
+                date: "2025-05-20",
+                country: "USA",
+                state: "Arizona",
+                place: "Bonanza Drive",
+                km: 3419, 
+                title: "Glitzer & Schweiß",
+                text: [
+                    "Früh aus den Federn, Vegas rief! Aber erstmal: Operation Mucki-Bude – hauptsächlich für die lebensrettende Dusche! 🚿 Nach einem Mini-Frühstück ging's dann rein ins Getümmel über den 6-spurigen Highway, wo der morgendliche Verkehr bereits fröhlich tobte. Adrenalin pur! 😅 Zum Glück konnte ich Bertha einen kostenlosen Parkplatz erobern – Mission geglückt!",
+                    "Dann zu Fuß durch die Fremont Street. 7 Uhr morgens und schon brütend heiß! ☀️ Die Casinos? Glitzernd, aber so gar nicht meins. Die Leute hier... ein bunter Haufen, manche schienen schon lange nicht mehr aktiv am Leben teilzunehmen.",
+                    "Nach gut 4 Stunden hatte ich genug und wollte nur noch weg! Die Flucht verzögerte sich dank unzähliger roter Ampeln. 🚦 Bertha hatte sich mittlerweile in eine mobile Sauna verwandelt, der Kühlschrank schrie wieder \"F1\" und mir lief der Schweiß in Strömen.",
+                    "Nächstes Highlight: der Hoover Dam! Was für ein gigantisches Bauwerk! Mein Gehirn hatte echt Mühe, diese Dimensionen zu begreifen. 🤯",
+                    "Die Weiterfahrt zum Schlafplatz war ein zäher Kampf gegen Hitze und Steigung. Berthas Motor-Thermometer neigte sich bedenklich nach rechts... das wird noch spannend bei den bevorstehenden 2000 Höhenmetern! 😬"
+                ]
+            },
+            { 
+                coords: { lat: 35.309983, lng: -112.858294 },
+                date: "2025-05-21",
+                country: "USA",
+                state: "Arizona",
+                place: "Seligman",
+                km: 3609, 
+                title: "Sprit-Segen",
+                text: [
+                    "In Bertha war es ewig heiß! 🥵 An Schlaf war kaum zu denken, bis es gegen 2 Uhr nachts endlich erträglich wurde – nur um zwei Stunden später vom Wecker ⏰ aus dem Kurzzeit-Koma gerissen zu werden.",
+                    "Meine neue Taktik im Kampf gegen die Gluthitze: Fahren nur im Schutze der Dämmerung! 🦇 Früh morgens und abends – eine goldrichtige Entscheidung, denn tagsüber wurde es wieder brutal heiß 🔥. Den Vormittag verbrachte ich im klimatisierten Exil meines Lieblingscafés (wo es fast schon zu kalt war 🥶☕️ – Luxusprobleme!). Nachmittags dann die große Schatten-Jagd für Bertha. Volltreffer! Ein schönes Plätzchen, obwohl es im Van trotzdem 40 Grad erreichte. Mit offenen Türen und einer leichten Brise wurde es dann aber immerhin auf \"nur noch\" 30 Grad erträglich.",
+                    "Als die Schatten länger wurden, ging's auf die zweite Etappe zum heutigen Nachtlager. Zuvor noch der Tankstellen-Jackpot: Benzin für unfassbare 90 Cent pro Liter! ⛽️ Mit dem Sonnenuntergang als feurigem Begleiter im Rückspiegel rollte ich dem Schlafplatz entgegen. 🌅"
+                ]
+            },
+            { 
+                coords: { lat: 35.976622, lng: -112.13211 },
+                date: "2025-05-22",
+                country: "USA",
+                state: "Arizona",
+                place: "Tusayan",
+                km: 3759, 
+                title: "Route 66",
+                text: [
+                    "Der Tag startete mit einem echten Knaller! Ein Stück der legendären Route 66 – und das ganz für mich allein! 🏍️ Der Sonnenaufgang über den Bergen dazu war pure Magie. 🌅 Was für ein Panorama!",
+                    "Nach einem kurzen Boxenstopp zum Einkaufen ging's dann schnurstracks Richtung Grand Canyon. Und siehe da, auf 2000 Metern Höhe sind die Temperaturen mit 26 Grad fast schon erfrischend! 🌬️ Eine willkommene Abwechslung nach der Wüstenhitze.",
+                    "Morgen steht die nächste Challenge an: Der Bright Angel Trail will bezwungen werden! 25km, 1500 Höhenmeter runter zum Colorado River und das Ganze wieder hoch. Wie Yosemite, nur mit der extra Portion Wüstenhitze als Würze! 🔥 Bin gespannt, was die Waden dazu sagen werden.",
+                    "Für die Nacht hab ich mir ein richtig lauschiges Plätzchen direkt am Rande des Abenteuers gesichert. Wildcampen scheint hier geduldet zu sein – kein Verbotsschild in Sicht! 😉"
+                ]
+            },
+            { 
+                coords: { lat: 36.053263, lng: -112.120593 },
+                date: "2025-05-23",
+                country: "USA",
+                state: "Arizona",
+                place: "Grand Canyn",
+                km: 3769, 
+                title: "Canyon-Wahnsinn",
+                text: [
+                    "Die Nacht? Ein Traum! 🌙 Umgeben von Gleichgesinnten, die die Freiheit genauso lieben. Totale Ruhe – bis ich um 4 Uhr morgens Bertha zum Leben erweckte und damit wohl den einen oder anderen aus dem Schlaf riss. Sorry, Leute! 😉",
+                    "Noch im Dunkeln ging's zum Canyon-Rand. Kurzes Frühstück, Wanderschuhe festzurren, und um 5:30 Uhr hieß es: Abmarsch! Meine geniale Strategie: Schnell runter, dann irgendwie wieder hochkraxeln. Bereits nach dem ersten Kilometer meldete sich der Oberschenkel mit einem fiesen Ziehen. Mist! Dehnen wäre wohl schlau gewesen... 🤦‍♂️",
+                    "Drei Stunden später und 1500 schweißtreibende Höhenmeter tiefer: Der Colorado River! Eine halbe Stunde Pause, dann begann die eigentliche Tortur – der Aufstieg! Was soll ich sagen? Ein Kampf gegen den inneren Schweinehund und die eigenen Grenzen. Irgendwann tat einfach ALLES weh. Ein Schritt nach dem anderen, rund 20.000 Mal. 🚶‍♂️💥",
+                    "Die Stunden vergingen, der Touristenstrom wurde dichter. Frisch duftende Menschen kamen mir entgegen – im krassen Gegensatz zu meinem eigenen Aroma. 😅 Das konnte nur eins bedeuten: Ziel in Sicht!",
+                    "Das letzte Stück war trotzdem eine Qual und zog sich wie Kaugummi. Aber die gegenseitige Motivation war ansteckend, denn ich war definitiv nicht der Einzige, der am Schnaufen war!",
+                    "Nach 9 Stunden und 27 Kilometern war ich wieder oben! Eine krasse Herausforderung mit einem Panorama-Blick, der jede einzelne Schweißperle wert war! Grand Canyon, du hast mich fertig gemacht – aber es war grandios! 🤩"
+                ]
+            },
+            { 
+                coords: { lat: 37.105992, lng: -111.90344 },
+                date: "2025-05-24",
+                country: "USA",
+                state: "Utha",
+                place: "Paria River",
+                km: 4037,
+                title: "Mars-Momente",
+                text: [
+                    "Gestern bin ich wohl mehr Kilometer gewandert, als Bertha gefahren ist. Die Diva meinte nämlich mal wieder: \"Nö, heute nicht!\" 🤷‍♂️ Also stand ich da, im Grand Canyon Village auf dem Supermarkt-Parkplatz – mit dem unguten Gefühl, dass das Ärger geben könnte.",
+                    "Und siehe da: Nächtlicher Klopf-Besuch! Aber ich war vorbereitet und wartete quasi schon im Bett auf den Ranger. Nach einer kurzen Demo von Berthas akuter Start-Unwilligkeit durfte ich netterweise bleiben. Puh! 😅",
+                    "Am Morgen dann das nächste Drama: Schlüssel im Zündschloss vergessen – Batterie leergesaugt! Ich Schussel. 🤦‍♂️ Nach stundenlanger Suche erbarmte sich dann Carmen und reanimierte Bertha mit Starterkabeln. Danke, Carmen, du bist meine Heldin des Tages! 💪",
+                    "Trotz des holprigen Starts wurde ich mit weiteren Natur-WOWs belohnt. Ich dachte echt, ich bin auf dem Mars gelandet! Umgeben von roten, zerklüfteten Bergen und tiefen Schluchten – einfach nur irre beeindruckend! 🪐",
+                    "Heute Nacht schlafe ich wieder tief in der Wüste und hoffe inständig, dass die einzigen ungebetenen Klopfer Käfer an der Windschutzscheibe sind. 😉"
+                ]
+            },
+            { 
+                coords: { lat: 37.209523, lng: -112.685733 },
+                date: "2025-05-25",
+                country: "USA",
+                state: "Utha",
+                place: "Paria River",
+                km: 4135,
+                title: "Der rote Korridor",
+                text: [
+                    "Die Nacht in der Wüste: Totenstille! Ich schlief den Schlaf der Gerechten – einfach himmlisch. 😴 Nach dem obligatorischen Frühstück lockte schon wieder das Abenteuer. Die Beine protestierten zwar noch leise von der Grand Canyon Tortur, aber hey, wann ist man schon mal hier? Also rein in die Wanderschuhe!",
+                    "Pünktlich zum Sonnenaufgang wanderte ich dann durch das feuerrote Paria Flussbett, das sich wie eine Schlange durch den Sandstein wand. 🐍 Ich, mutterseelenallein zwischen gigantischen, roten Felswänden. Außer meinem eigenen Schnaufen und dem Gesang ein paar Vögel: pure Stille. Einfach magisch!",
+                    "Nach dieser staubigen Tour war die anschließende Dusche der pure Luxus! 🚿 Endlich den Mix aus Sonnencreme und Wüstensand von der Haut schrubben – unbezahlbar! Dann noch ein paar entspannte Kilometer zum nächsten Nachtlager gerollt. Jetzt heißt es: Füße hoch, nichts tun! Ist ja schließlich Sonntag. 😉"
+                ]
+            },
+            { 
+                coords: { lat: 39.022102, lng: -112.085598 },
+                date: "2025-05-26",
+                country: "USA",
+                state: "Utha",
+                place: "Maple Grove",
+                km: 4382,
+                title: "Es grünt wieder",
+                text: [
+                    "Endlich! Die staubig-rote Wüstenlandschaft hat sich verabschiedet und macht saftigem Grün Platz, je weiter Bertha und ich gegen Norden schnurren. 🌲 Die umliegenden Berge tragen sogar noch freche kleine Schneehäubchen auf ihren Gipfeln – was für ein Anblick!",
+                    "Heute war zwar primär ein Fahrtag, unterbrochen von einer produktiven Arbeits-Session auf dem glamourösen Supermarkt-Parkplatz (man kennt's 😉), aber gegen Nachmittag dann die pure Belohnung: Ich bin in meinem schnuckeligen Nachtquartier angekommen. Mitten im Grünen, mit majestätischem Bergpanorama und einem leise plätschernden Flüsschen direkt vor der Van-Tür. Das Universum hat mal wieder ein echtes Sahnestückchen für mich parat gehabt – dankbar angenommen! 🙏"
+                ]
+            },
+            { 
+                coords: { lat: 40.200686, lng: -111.886284 },
+                date: "2025-05-27",
+                country: "USA",
+                state: "Utha",
+                place: "Utha Lake",
+                km: 4532,
+                title: "Traumstart",
+                text: [
+                    "Ein kühler Morgen, das Bettchen so kuschelig – der Wecker? Wurde eiskalt ignoriert! 😴 Stattdessen: Sonnenaufgang, Vogelgezwitscher als Privatkonzert 🐦 und das Bächlein plätscherte fröhlich sein Lied. Was will man mehr von einem Morgen?",
+                    "Um 7 Uhr war der Zauber dann aber vorbei – zumindest der Schlafzauber. Nach der Katzenwäsche verwandelte sich mein Van in das wohl coolste Büro der Welt: Laptop auf, Naturkulisse drumherum. 💻🌲 Hach, so macht die Arbeit doch gleich viel mehr Spaß!",
+                    "Die Stunden verflogen wie im Rausch, und plötzlich war's Nachmittag – und Bertha hatte sich noch keinen Meter bewegt! Mein Tagespensum von mindestens 100 km rief aber lautstark. Also, aufgesattelt und los! 🚐",
+                    "Unterwegs dann die Sensation: Regen! 🌧️ Ich traute meinen Augen kaum, an den letzten Schauer konnte ich mich beim besten Willen nicht mehr erinnern. Lange hielt die himmlische Erfrischung aber nicht an und machte schnell wieder Platz für die Sonne.",
+                    "Für die Nacht habe ich mein Quartier direkt am Ufer des Utah Lake aufgeschlagen... äh, geparkt. Wunderschön hier, mit Blick auf den See und das majestätische Bergpanorama im Hintergrund. 🏞️"
+                ]
+            },
+            { 
+                coords: { lat: 40.921193, lng: -111.402837 },
+                date: "2025-05-28",
+                country: "USA",
+                state: "Utha",
+                place: "Coalville",
+                km: 4662,
+                title: "Café-Asyl",
+                text: [
+                    "Heute war mal wieder Großstadt-Alarm angesagt: Salt Lake City stand auf dem Routenplan. 🚦 Das bedeutete jede Menge rote Ampeln, zähfließender Verkehr und die übliche Dosis urbaner Hektik. Puh!",
+                    "Zum Glück gab es auch hier eine Filiale meines Lieblingscafés! Dort verschanzte ich mich gefühlt den halben Tag im klimatisierten Asyl und ließ die Tastatur glühen. 💻☕️ Ein bisschen Normalität muss ja auch mal sein.",
+                    "Am Nachmittag dann endlich: Aufbruch! Raus aus dem Betondschungel, zurück in die Freiheit. Mein nächstes großes Ziel leuchtet schon am Horizont: Der Yellowstone National Park! 🏞️ Bis dahin sind es zwar noch ein paar Tage, aber die Gegend hier schreit förmlich nach der einen oder anderen Wanderung. Gipfel gibt's hier ja genug zu stürmen! 🏔️ Die Vorfreude steigt!"
+                ]
+            },
+            { 
+                coords: { lat: 42.459737, lng: -110.963255 },
+                date: "2025-05-29",
+                country: "USA",
+                state: "Wyoming",
+                place: "Salt Creek",
+                km: 4888,
+                title: "Bundesstaat-Hopping",
+                text: [
+                    "Ein herrlich ruhiger Start in den Tag! Ausgeschlafen bis 5:20 Uhr – fast schon dekadent! 😉 Danach das übliche Ritual: Frühstück, Kaffee und dann ganz gemächlich den Laptop aufgeklappt für eine kleine Dosis produktiver Arbeit, um das Gewissen zu beruhigen.",
+                    "Mittags gab's schnelle Instant-Nudeln mit Gemüse-Upgrade, bevor es dann weiter gegen Norden ging. Mein Navi hatte heute allerdings eine kleine Identitätskrise: Erst Utah, dann Wyoming, wieder Utah, dann Wyoming... irgendwann war's Idaho, und schließlich doch wieder Wyoming. 🗺️❓ Gut, dass wir das geklärt hätten!",
+                    "Heute hab ich nochmal ordentlich Kilometer gefressen. Morgen steht nämlich wieder eine Wanderung auf dem Plan, und danach werde ich vermutlich weder Lust zum Fahren haben noch in der Lage sein, das Gaspedal zu bedienen. 😅",
+                    "Für die Nacht hab ich mir wieder ein lauschiges Plätzchen im Grünen gesucht. Was mich allerdings etwas beunruhigt: Die Mücken-Dichte nimmt hier spürbar zu. 🦟 Mäh! Alles, nur keine Blutsauger!"
+                ]
+            },
+            { 
+                coords: { lat: 42.730737, lng: -110.921234 },
+                date: "2025-05-30",
+                country: "USA",
+                state: "Wyoming",
+                place: "Afton",
+                km: 4925,
+                title: "Ego-Delle",
+                text: [
+                    "Heute sollte der Red Top Mountain mit seinen stolzen 3166 Metern gestürmt werden – 1800 Höhenmeter warteten auf meine tapferen Waden! 💪 Voller Tatendrang machte ich mich auf den Weg... nur um festzustellen: Einen richtigen Weg gab's hier nicht! Stattdessen: ein krank steiler Hang, durchzogen von Wildspuren, denen man mehr schlecht als recht folgen konnte. 🦌 Na gut, keine Wahl, hoffentlich treff ich auf keinen Bären!",
+                    "Es war unglaublich anstrengend, auch nur kleine Fortschritte zu machen. Auf über 2500 Metern wird das Atmen sowieso schon schwerer, und dann noch dieser Anstieg! 🥵 Nach drei Stunden schweißtreibender Kraxelei war ich auf ca. 2900 Metern – und da lag er: Schnee! ❄️ Ein paar Probe-Schritte... vergiss es! Bis zu den Knien eingesunken, da ging gar nichts mehr. Und es waren noch 5 Kilometer bis zum Gipfel. Haha, guter Witz!",
+                    "Mein Ego? Deutlich geknickt. 😔 Also: Aktion abgebrochen und den Rückweg angetreten. Runter war es mindestens genauso tricky – bloß nicht zu viel Fahrt aufnehmen, sonst ging's ab wie das Geröll, das ich ab und zu lostrat: ungebremste Talfahrt!",
+                    "Trotz Fehlschlag, Anstrengung und dem fehlenden Pfad fand ich diese Wanderung schön. Es gab kein Richtig oder Falsch, ich musste mir meinen eigenen Weg bahnen. Eine wirklich interessante und fordernde Erfahrung! 🧗‍♂️"
+                ]
+            },
+            { 
+                coords: { lat: 43.171466, lng: -111.017105 },
+                date: "2025-05-31",
+                country: "USA",
+                state: "Wyoming",
+                place: "Alpine",
+                km: 4969,
+                title: "Bertha-Blockade 2.0",
+                text: [
+                    "Der gestrige Abend endete traumhaft! Der Rastplatz direkt am See mit Bergpanorama war schon ein Highlight, aber die Brauerei nebenan mit lecker Bier 🍻 und saftigen Burgern 🍔 setzte dem Ganzen die Krone auf – ein perfekter Abschluss!",
+                    "Heute allerdings der altbekannte Blues... Nach nur 3 km Fahrt und einer kurzen Shopping-Pause meinte Bertha mal wieder: \"Nö, heute nicht!\" 🙄 Oh Mann, ey! Mehrere Startversuche über den Tag verteilt blieben erfolglos. Es sieht also ganz danach aus, als würde ich eine weitere glamouröse Nacht auf dem Supermarkt-Parkplatz verbringen. Ich höre schon das vertraute Klopfen an der Tür...",
+                    "Aber es gab auch einen Lichtblick! Während ich so in Bertha Trübsal blies, traf ich Chet. Ein wahrer Engel, der sich mit diesen alten Vergaser-Motoren bestens auskannte. Ohne passende Ersatzteile (die erst bestellt werden müssten) konnte er mir zwar nicht direkt helfen, aber seine fachkundige Erklärung war Gold wert! 🙏",
+                    "Ich merke deutlich, wie diese ständigen Rückschläge aufs Gemüt schlagen. Trotzdem versuche ich, die Moral hochzuhalten und es als weitere Herausforderung dieses epischen Roadtrips zu sehen. Eine dicke Umarmung würde ich jetzt aber trotzdem nicht ablehnen. :')"
+                ]
+            },
+            { 
+                coords: { lat: 43.69285, lng: -110.732468 },
+                date: "2025-06-01",
+                country: "USA",
+                state: "Wyoming",
+                place: "Tenton National Park",
+                km: 5053,
+                title: "Blinder Passagier",
+                text: [
+                    "Die Nacht mal wieder eher semi-erholsam, aber immerhin klopffrei! Dafür der morgendliche Weckruf der anderen Art: Kratzen und Rascheln in Bertha! Kein Wind? Verdacht: Blinder Passagier an Bord! 🐭",
+                    "Also, Aktion \"Van-Räumung\" gestartet. Und da war sie – Jerry die Maus! Nach einem kurzen Blickduell 🤠 verschwand sie flink Richtung Fahrersitz. Ob Jerry wirklich das Weite gesucht hat? Unklar. In der leeren Bertha war sie jedenfalls unauffindbar. Also: Alles wieder rein!",
+                    "Dann der große Moment: Zündung! Bertha zickte kurz, aber erwachte dann doch widerwillig zum Leben. Puh! 😅 Weiter ging's in den Teton National Park – eine spontane Entdeckung auf dem Weg zum Yellowstone. Und das Beste: FREI campen und übernachten erlaubt! Jackpot! 🥳",
+                    "Kaum angekommen, schon die Wanderschuhe geschnürt. Die 10km und 300 Höhenmeter waren nach den letzten Strapazen fast schon ein Spaziergang. Erfrischend! 🚶‍♂️ Den Rest des Tages genoss ich im Van-Office mit majestätischem Blick auf den Grand Teton. 🏔️ Kummer und Sorgen von gestern? Wie weggeblasen!"
+                ]
+            },
+            { 
+                coords: { lat: 44.104327, lng: -110.665822 },
+                date: "2025-06-02",
+                country: "USA",
+                state: "Wyoming",
+                place: "Headwaters Campground",
+                km: 5116,
+                title: "Jerrys Comeback",
+                text: [
+                    "Der Morgen startete mit dem vertrauten Soundtrack: Rascheln, Scharren, Knuspern. Jerry, mein pelziger Untermieter 🐭, hat sich wohl entschieden, sein Abo bei mir zu verlängern. Beim Frühstück dann die böse Überraschung: Mein endlich reifer Pfirsich 🍑 wurde Opfer eines nächtlichen Überfalls! Frechheit! Während ich mein (reduziertes) Frühstück mampfte, mutierte ich zum Fallenbau-Experten und studierte humane Fangmethoden. Jerry soll ja schließlich nicht zum Märtyrer werden.",
+                    "Aber erst mal rief der Berg! ⛰️ Trotz müder Knochen musste eine weitere Wanderung einfach sein – die Gipfel hier sind einfach zu verlockend. Nach der Strapaze gab's ein kurzes Power-Nickerchen 😴, bevor es weiter Richtung Yellowstone ging. Dort angekommen die Ernüchterung: Keine freien Campingplätze mehr in Sicht. Für die nächsten zwei Nächte heißt es also: blechen. Buh! 💸 Mein innerer Sparfuchs weint.",
+                    "Das große Plus: eine Dusche! 🚿 Endlich den Wanderstaub abspülen – ein Segen! Für die Nacht stelle ich jetzt noch ein paar ausgeklügelte DIY-Fallen auf. Ob Jerry auf meine Ingenieurskunst reinfällt? Wir werden sehen!"
+                ]
+            },
+            { 
+                coords: { lat: 44.645278, lng: -110.862385 },
+                date: "2025-06-03",
+                country: "USA",
+                state: "Wyoming",
+                place: "Madison Campground",
+                km: 5209,
+                title: "Yellowstone National Park",
+                text: [
+                    "Spielstand nach Nacht eins: Jerry 1, Ich 0. Meine raffinierte Falle wurde zwar ausgelöst, aber Jerry hat sich davon nicht beeindrucken lassen. Anscheinend sind 40cm Fallhöhe für so einen gewieften Nager ein Klacks. 🤷‍♂️ Für heute Nacht ist aber schon Falle 2.0 in Planung – diesmal mit geheimer Falltür-Technologie!",
+                    "Meine Stimmung war trotzdem auf Wolke Sieben! Jerry war Nebensache, denn heute stand der Yellowstone National Park auf dem Programm – und ich wurde nicht enttäuscht! 🤩 Umgeben von zischenden, rauchenden Geysiren, die hier und da mal wieder spektakulär ausbrachen – einfach nur geil! Die bunten Thermalquellen sahen so einladend aus, dass ich am liebsten reingesprungen wäre... wenn das Wasser nicht kurz vorm Siedepunkt gewesen wäre. 🔥",
+                    "Nach diesem mehr als erfolgreichen Tag ging's ein paar Kilometer weiter zum nächsten Campingplatz (gestern noch einen Platz ergattert, Glück gehabt!). Dort angekommen, hieß es: Rückwärts einparken für Fortgeschrittene. Viel Platz zum Manövrieren gab's nicht, und ein unschuldiges Schild am Wegesrand hat die Begegnung mit Bertha leider nicht überlebt. Ups! 😬",
+                    "Den Rest des Tages verbrachte ich mit ein bisschen Arbeit und der Konstruktion von Jerry-Falle 2.0. Der Kampf geht weiter! 💪 "
+                ]
+            },
+            { 
+                coords: { lat: 46.349376, lng: -111.533305 },
+                date: "2025-06-04",
+                country: "USA",
+                state: "Montana",
+                place: "Cottonwood Campground",
+                km: 5466,
+                title: "Wo ist Jerry?",
+                text: [
+                    "Neuer Spielstand im Mäuse-Krimi: Jerry 2, Ich 0. 🐭 Gestern Abend dachte ich kurz, ich hätte den kleinen Racker! Er ist mir in die Falle getappt, Deckel drauf, ab in den Wald für die feierliche Freilassung. Doch als ich einen triumphierenden Blick in den Eimer warf: Gähnende Leere! Wie aus einem Cartoon, poof, weg war er! 🎩",
+                    "Ich war gestern aber auch einfach zu k.o., um die Jagd fortzusetzen. Ob Jerry noch an Bord ist oder ob das nur die Vanlife-Paranoia ist, die langsam zuschlägt? Die nächste Knusper-Nacht wird's zeigen.",
+                    "Der heutige Tag lässt sich kurz und bündig zusammenfassen: Arbeiten und Fahren. 💻🚗 Mehr war nicht. Auf meinem Weg zogen unzählige, verlockende Wanderwege an mir vorbei, aber ich musste mich zwingen, aufs Gaspedal zu treten. Der Tag morgen wird wohl ähnlich aussehen, wenn nicht sogar genauso: arbeiten und fahren. Gähn deluxe. 🥱"
+                ]
+            },
+            { 
+                coords: { lat: 48.191633, lng: -112.504428 },
+                date: "2025-06-05",
+                country: "USA",
+                state: "Montana",
+                place: "Dupuyer",
+                km: 5731,
+                title: "Durst Strecke",
+                text: [
+                    "Gestern Abend, das große Rascheln-Comeback? Ich hätte schwören können, es war wieder so weit! Also schnell Mausefalle 3.0, die High-Tech-Variante, scharf gemacht. Und heute Morgen? Falle unberührt, Stille im Van. Ist Jerry etwa freiwillig von Bord gegangen? Oder spukt jetzt sein Geist in Bertha und lacht sich über meine Fallen ins Fäustchen? 👻 Nächstes Level: Geisterjagd!",
+                    "Der Tag selbst war dann wieder die bewährte Kombi: Arbeiten im Lieblingscafé 💻 und Kilometer fressen. Dabei hätte ich mich fast mit der Tanknadel angelegt! Die zeigte schon frech hinter die \"Tank LEER\"-Markierung. Ein echter Nervenkitzel, ringsum nur Wiese und majestätische Berge am Horizont. 😬 Aber alles gut gegangen, nach einem eiligen Pitstop ging's weiter.",
+                    "Den Campingplatz hier habe ich heute Nacht wohl für mich allein. Was für ein Luxus! Ich sehne mich nach einer wirklich friedlichen Nacht. Morgen steht vielleicht wieder eine kleine Wanderung auf dem Programm – die Berge rufen ja schon. ⛰️"
+                ]
+            },
+            { 
+                coords: { lat: 49.499528, lng: -113.947236 },
+                date: "2025-06-06",
+                country: "Canada",
+                state: "Alberta",
+                place: "Pincher Creek",
+                km: 5997,
+                title: "Pannen-Parade",
+                text: [
+                    "Es ist offiziell: Jerry ist von Bord! 🐭 Hat ihm im Yellowstone wohl zu gut gefallen. Ich gönn's ihm – und mir die himmlische, totenstille Nacht! Ein Traum!",
+                    "Heute standen viele Kilometer auf dem Tacho, aber statt Büro-Blues gab's Wander-Action im Glacier National Park. Leute, mir ist da mehrfach die Kinnlade runtergeklappt – was für ein Bergpanorama! 🏔️🤩",
+                    "Nach der Gipfel-Euphorie ging's dann aber steil bergab... mit mir. Erst wurde ich als flotter Flitzer von der Polizei gestoppt. 🚓 Die Sirenen hab ich wohl überhört, aber das rot-blaue Disco-Licht im Rückspiegel war unübersehbar. Zum Glück nur eine Verwarnung! Kaum wieder auf Kurs, gab's an der kanadischen Grenze die nächste Lektion, weil ich das Kleingedruckte auf einem Stoppschild ignoriert hatte. 🇨🇦 Durfte aber trotzdem rein – puh!",
+                    "Als wäre das nicht genug, streikten dann auch noch meine beiden Kreditkarten – eine sogar gesperrt! 💳💥 Bevor jetzt noch die Alien-Invasion startet, hab ich mich mit Bertha auf dem nächsten Supermarkt-Parkplatz verschanzt. Fehlt eigentlich nur noch das altbekannte Klopfen an der Tür für den perfekten Abschluss... 🙄"
+                ]
+            },
+            { 
+                coords: { lat: 50.574654, lng: -113.873712 },
+                date: "2025-06-07",
+                country: "Canada",
+                state: "Alberta",
+                place: "High River",
+                km: 6150,
+                title: "Ein Schlemmer-Tag",
+                text: [
+                    "Eine weitere erstaunlich ruhige Nacht auf dem Supermarkt-Parkplatz! Den Wecker heute Morgen? Eiskalt ignoriert und eine extra Mütze Schlaf gegönnt. 😴",
+                    "Meine Tagesetappe habe ich direkt nach dem Aufstehen in einem Rutsch absolviert und landete im schnuckeligen Örtchen High River. Dort gab's erstmal Frenchtoast und Kaffee in einem alten Eisenbahnwaggon-Bistro – was für eine coole Atmosphäre! 🚂☕️",
+                    "Den Nachmittag verbrachte ich dann produktiv in der kleinen Bibliothek nebenan, die ich fast für mich allein hatte – mein persönliches ruhiges Arbeits-Refugium. Nach getaner Arbeit wurde dann aber richtig geschlemmt: Eine ordentliche Pizza, verdrückt mit dem Laptop auf dem Schoß. 🍕 Ein echter Schlemmer-Tag – das muss auch mal sein!"
+                ]
+            },
+            { 
+                coords: { lat: 51.106561, lng: -114.040435 },
+                date: "2025-06-08",
+                country: "Canada",
+                state: "Alberta",
+                place: "Calgary",
+                km: 6217, 
+                title: "Co-Pilotin im Anflug",
+                text: [
+                    "Heute führte mein (geplanter!) Weg nach Calgary – ein kurzer, aber wichtiger Boxenstopp, um Bertha nochmal gründlich durchzuchecken, bevor es in die majestätischen Rocky Mountains geht. 🏔️ Sicher ist sicher!",
+                    "Auf der nächsten Etappe bekomme ich Verstärkung: Ina stößt für drei Wochen dazu! Morgen hole ich sie vom Flughafen ab. ✈️👋",
+                    "Den heutigen Tag hab ich daher genutzt, um Bertha mal wieder auf Hochglanz zu bringen – aufräumen und putzen war dringend nötig. Außerdem habe ich noch ein extra Set Geschirr besorgt. So müssen wir uns dann nicht eine Gabel und eine Tasse teilen. 😉",
+                    "Ich freue mich riesig auf die Reisebegleitung, bin aber gleichzeitig auch super gespannt, wie gut wir beide hier in Bertha klarkommen werden. Für mich allein ist der Platz ja schon... optimiert. Zu zweit wird's definitiv interessant und eine neue Dimension des Vanlife-Tetris! 😂",
+                ]
+            },
+            { 
+                coords: { lat: 51.106561, lng: -114.040435 },
+                date: "2025-06-09",
+                country: "Canada",
+                state: "Alberta",
+                place: "Calgary",
+                km: 6217, 
+                title: "Alles check!",
+                text: [
+                    "Ölwechsel für Bertha? Check! ✅ Wäsche gewaschen und duftet frisch? Check! ✅ Neue Bettwäsche aufgezogen? Check! ✅ Ina vom Flughafen abgeholt und sicher im Van verstaut? Doppel-Check! ✅✈️",
+                    "Der heutige Tag war straff durchgetaktet, fast schon ein bisschen zu stressig für meinen entspannten Vanlife-Rhythmus. Aber hey, alles lief wie am Schnürchen, und Ina ist jetzt offiziell bei mir eingezogen. Die Van-WG ist eröffnet!",
+                    "Für die Nacht haben wir interessante Nachbarn bekommen: ein riesiger Unimog mit Berliner Kennzeichen parkt direkt neben uns. Scheint, als hätte Ina gleich noch Verstärkung mitgebracht! 😉🇩🇪",
+                    "Morgen früh startet dann unser gemeinsames Abenteuer: Aufbruch Richtung Banff National Park! Die Berge rufen – und wir sind bereit! 🏔️👯‍♀️"
+                ]
+            },
+            { 
+                coords: { lat: 51.09803, lng: -115.063557 },
+                date: "2025-06-10",
+                country: "Canada",
+                state: "Alberta",
+                place: "Bow River Dam",
+                km: 6305, 
+                title: "Herausforderungen in den Rocky Mountains",
+                text: [
+                    "Meine erste Nacht auf der Isomatte auf dem Boden in Bertha war erstaunlich komfortabel; Ina hatte ich das Bett überlassen. Ina war aufgrund des Jetlags bereits um 4 Uhr wach und erkundigte sich noch vor meinem Wecker, ob ich ebenfalls wach sei. Ich bat um weitere zehn Minuten.",
+                    "Nachdem wir das Tagesziel besprochen hatten, erledigten wir Einkäufe und tankten Bertha voll. In den Bergen angekommen, überprüfte ich vor der geplanten Wanderung meine beruflichen Nachrichten. Kaum war ich online, erhielt ich einen Anruf, dessen Inhalt unerfreulich war: Mir wurde mitgeteilt, dass eine weitere Zusammenarbeit nicht mehr gewünscht sei – mit den besten Wünschen für die Zukunft wurde das Arbeitsverhältnis beendet.",
+                    "Dieses Gespräch hinterließ mich schockiert, verwirrt und tief enttäuscht. Der restliche Tag war damit für mich im Wesentlichen gelaufen, und ich befürchte, Ina hatte aufgrund meiner Verfassung keine angenehme Zeit.",
+                    "Ich empfinde dies als einen weiteren Tiefschlag in meinem Leben, aus dem ich hoffentlich gestärkt hervorgehen werde. Für heute und wahrscheinlich auch die kommenden Tage wird meine sonst positive Stimmung jedoch gedrückt sein. Ich bin sehr dankbar diesmal einen Freund an meiner Seite zu haben, denn Umarmungen helfen doch sehr."
+                ]
+            },
+            { 
+                coords: { lat: 51.416262, lng: -116.176542 },
+                date: "2025-06-11",
+                country: "Canada",
+                state: "Alberta",
+                place: "Bow River Dam",
+                km: 6413, 
+                title: "Lichtblicke im Banff Nationalpark",
+                text: [
+                    "Die Nacht war, wie erwartet, von wenig Schlaf geprägt. Ich war dennoch froh, als sie vorüber war. Mit gedämpfter Stimmung brachen wir früh zum Banff Nationalpark auf. Die Sicht auf die Bergmassive war durch die Rauchschwaden der nordwestlich gelegenen Waldbrände leider stark eingeschränkt.",
+                    "Ich bemühte mich, eine gute Reisebegleitung für Ina zu sein, begleitete sie in diverse Souvenirläden und knipste geduldig zahlreiche Urlaubsfotos. Am Nachmittag besuchten wir ein Thermalbad. Dort traf ich auf Jerry und Nick, zwei Australier, mit denen ich kurz Reisegeschichten austauschte – eine angenehme Begegnung.",
+                    "Anschließend fuhren wir zu unserem Schlafplatz auf einem der Campingplätze im Nationalpark. Auf dem Weg dorthin lichteten sich die Rauchschwaden zusehends und gaben den Blick auf die majestätischen Berge mit ihren Gletschern frei – ein wirklich beeindruckender Anblick. Ich spürte, wie sich meine Stimmung zum ersten Mal an diesem Tag aufhellte, was auch Ina bestätigte."
+                ]
+            },
+            { 
+                coords: { lat: 52.846789, lng: -118.081596 },
+                date: "2025-06-12",
+                country: "Canada",
+                state: "Alberta",
+                place: "Whistlers Campground",
+                km: 6643, 
+                title: "Gletscher-Glanz",
+                text: [
+                    "Der Tag startete mit einer Postkartenkulisse am Lake Louise – Berge, See, Gletscher, einfach nur WOW! 🤩 Doch die Freude währte nur kurz, denn dicke Regenwolken zogen auf und machten dem Spektakel ein nasses Ende. 🌧️ Die begleiteten uns dann den Rest des Tages.",
+                    "Auf der Weiterfahrt Richtung Jasper dann der nächste Adrenalin-Kick: keine fünf Minuten auf dem Highway, und wer tapst da gemütlich über die Straße? Ein Bär! 🐻 Ina war völlig aus dem Häuschen – erste Bärensichtung, ein voller Erfolg! Nächster Stopp: der Athabasca Gletscher. Ein Gigant aus Eis! 🧊 Brrr, da wurde es uns gleich mal ordentlich frisch um die Nase.",
+                    "Am Nachmittag erreichten wir dann den Whistler's Campground. Und was stand auf dem Programm? Mein persönliches Wellness-Highlight: Ina zückte die Schere und verpasste mir einen dringend nötigen Haarschnitt. ✂️ Danke, Ina, jetzt sehe ich wieder halbwegs zivilisiert aus!",
+                    "Jetzt regnet es wieder und wir haben uns in Bertha verkrochen und lassen so langsam den Tag ausklingen. 🚐"
+                ]
+            },
+            { 
+                coords: { lat: 52.832269, lng: -119.264145 },
+                date: "2025-06-13",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Valemount",
+                km: 6768, 
+                title: "Berthas Vulkan-Ausbruch",
+                text: [
+                    "Freitag der 13te begann ganz harmlos mit einer warmen Dusche 🚿 und einem kleinen Frühstückchen. Der Regen war unser treuer Begleiter, also verschanzten wir uns gemütlich in Bertha. Am Nachmittag dann: Wetterbesserung! Die Gunst der Stunde nutzen für einen kleinen Spaziergang, dachten wir...",
+                    "Kurze Fahrt, komisches Geräusch... und dann der Schock: Motorthermometer knallrot! 😱 Motor aus! Gerade noch so auf den Wanderparkplatz gerollt. Dann: Rauchzeichen von unter der Motorhaube! \"Ina, Feuerlöscher!\", brüllte ich, sah aber zum Glück keine Flammen. Diagnose: Kühlflüssigkeit? Fehlanzeige! Der Mobile-Mechaniker kam, wir kippten Wasser rein und Bertha verwandelte sich in einen Geysir! 🌋 So was hab ich noch in keinem Film gesehen!",
+                    "Irgendwie haben wir die alte Dame wiederbelebt und sind in die nächste Stadt gehumpelt. Dort trafen wir James, einen alten Hasen mit Gold in den Händen. Er zeigte mir nicht nur Berthas Start-Tricks, sondern diagnostizierte auch den Übeltäter: ein defekter Kühlblockverschluss. Und dann kamen noch mehr Leute und boten ihre Hilfe an! Ich war einfach nur baff und dankbar für diese unglaubliche Hilfsbereitschaft hier. 🙏🛠️",
+                    "Heute wird Bertha nicht mehr flott, aber James ist zuversichtlich: Spätestens morgen sind wir wieder auf der Piste. Unglaublich, wie ein Mensch eine aussichtslose Lage in pure Hoffnung verwandeln kann! 💪"
+                ]
+            },
+            { 
+                coords: { lat: 50.868534, lng: -120.228034 },
+                date: "2025-06-14",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Dick Hart Memorial Park",
+                km: 7062, 
+                title: "Berthas Auferstehung",
+                text: [
+                    "Der Morgen zog sich wie Kaugummi! 🙄 Wir mussten bis 9 Uhr warten, bis der Auto-Laden endlich seine Pforten öffnete. Während Ina sportlich ihre Runden drehte, kaute ich nervös auf meiner Kaffeetasse herum. Dann kam unser Retter James angerollt, Mission: Loch im Motorblock stopfen! 🛠️",
+                    "Nach gefühlt 100 Trips zum Autoteile-Dealer hatten wir DEN heiligen Gral: einen passenden Metall-Stöpsel! Den hat James dann mit Schmackes ins Loch geprügelt. Erster Wassertest: Tröpfel, tröpfel. 💧 Nach ein paar weiteren zärtlichen Hammer-Streichel-Einheiten saß das Ding bombenfest. Kühler randvoll – check!",
+                    "Die Probefahrt? Ein Triumphzug! James und ich, erleichtert und siegessicher – Bertha schnurrte wie ein Kätzchen (naja, fast 😉). Ich umarmte den alten Auto-Veteranen, drückte ihm mein gesamtes Bargeld in die Hand (er hat's verdient!) und wir tauschten Kontaktdaten aus. Mein Versprechen: Wenn ich Kanada verlasse, gehört Bertha ihm!",
+                    "Am Nachmittag rollten Ina und ich dann weiter – mit Bertha! Fühlte sich total surreal an, als wäre der ganze Spuk nie passiert. Ich bin James unendlich dankbar. Er hat nicht nur unsere Weiterfahrt, sondern auch Inas Urlaub und mein rollendes Zuhause gerettet. Danke, James, du Legende! 🙏💪🚐💨"
+                ]
+            },
+            { 
+                coords: { lat: 50.676046, lng: -120.312765 },
+                date: "2025-06-15",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Kamloops",
+                km: 7092, 
+                title: "Seelenbaumeln",
+                text: [
+                    "Die Nacht war ein Träumchen, und der Morgen startete mit Vogelkonzert statt Weckerlärm – so muss das Vanlife-Leben sein! 🐦 Wir ließen es ganz gemütlich angehen.",
+                    "Den Tag verbrachten wir dann im netten Kamloops. Am Thompson River ließen wir gepflegt die Seele baumeln – die Ruhe tat auch gut, mein innerer Motor stotterte nämlich leicht. 🤧 Einfach nur daliegen und den Wolken nachschauen.",
+                    "Die Abenddämmerung brachte dann aber eine weniger erfreuliche Überraschung: ein teures Andenken vom Supermarkt-Parkplatz! Ein Knöllchen von 60 Euro für zu langes Verweilen. Na toll! 💸 Die Park-Sheriffs hier kennen wohl keinen Spaß.",
+                    "Also nix wie weg und einen neuen Schlafplatz angesteuert. Hoffentlich bleiben wir hier von weiteren Liebesbriefen der Parkraumüberwachung verschont. 😉"
+                ]
+            },
+            { 
+                coords: { lat: 50.975521, lng: -118.723482 },
+                date: "2025-06-16",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Last Spike Rest Area",
+                km: 7267,
+                title: "Morgen-Power",
+                text: [
+                    "Der Tag startete mit einer ordentlichen Portion Energie! 🏋️‍♂️ Vor dem Frühstück hab ich mich auf dem gegenüberliegenden Fußballfeld im Schatten der Bäume so richtig ausgepowert – mit der aufgehenden Sonne als Trainingspartner. 💪",
+                    "Nach dem obligatorischen Frühstückskaffee ☕️ hieß es dann: Kilometer fressen! Viel gefahren sind wir heute, unterbrochen von ein, zwei erfrischenden Abstechern zum nächstgelegenen See für eine spontane Schwimmeinlage. 🏊‍♀️ Eine willkommene Abkühlung!",
+                    "Den Abend verbringen wir nun auf einem... nennen wir es \"charmanten\" Autobahnrastplatz. Die Hoffnung auf Ruhe stirbt ja bekanntlich zuletzt, aber aktuell brettern die LKWs vorbei wie auf der Rennstrecke 🚛💨, und auf der anderen Seite rattert im Halbstundentakt ein kilometerlanger Güterzug vorbei. 🚂 Ach ja, die Mücken 🦟 feiern hier auch eine Party, und es ist immer noch übelst warm. Wird sicher eine... interessante Nacht. 😉"
+                ]
+            },
+            { 
+                coords: { lat: 50.943163, lng: -118.15589 },
+                date: "2025-06-17",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Revelstoke",
+                km: 7323,
+                title: "Nett hier",
+                text: [
+                    "Die Nacht? Für mich eher eine Zug-Safari als Tiefschlaf-Oase. 🚂 Ina? Die hat von den donnernden Güterzügen angeblich nichts mitbekommen – diesen Schlaf hätte ich auch gern! 😴 Unser Frühstückchen gab's dafür an einem Bergsee, so idyllisch, dass es fast schon kitschig war. 🏞️",
+                    "Weiter ging's nach Revelstoke ins lokale Schwimmbad – ein wahrer Segen! Ina war mir sichtlich dankbar, und ich mir selbst auch, denn Sauna und Dampfbad warteten auf uns. 🧖‍♀️ Herrlich, den Reisestaub abzuspülen! Den Nachmittag verbrachten wir dann damit, die majestätischen Berge und den Columbia River zu bestaunen – was für eine friedliche und wunderschöne Ecke hier! 🏔️",
+                    "Morgen geht's dann weiter auf dem Highway 1 durch den Glacier National Park (diesmal die kanadische Edition). Neue Abenteuer warten!"
+                ]
+            },
+            { 
+                coords: { lat: 51.485269, lng: -117.180795 },
+                date: "2025-06-18",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Rogers Pass",
+                km: 7450,
+                title: "Schnupfen-Held",
+                text: [
+                    "Aufstehen? Schwerstarbeit! Inas Mitbringsel-Erkältung 🤧 hatte mich voll im Griff. Ein Mini-Dampfbad 🧖‍♂️ musste her, half aber nur kurz. Trotzdem: Frühstück am Picknickplatz – ein Ritual, an das man sich gewöhnen könnte! ☕️🧺",
+                    "Tagesziel: Rogers Pass! War mir unsicher, ob meine Schniefnase das packt. Die ersten Höhenmeter waren wie Blei, aber ich hab mich tapfer bis zur Schneegrenze hochgequält. 💪 Runter ging's dann wie von selbst, gefolgt von einem verdienten Power-Nap. 😴",
+                    "Nach leckeren Mittags-Wraps 🌯 ging's zum Bear Creek Wasserfall. Ina war im Foto-Rausch 📸, und ich? Ich war happy, dass Ina happy war – Teamwork! 😊",
+                    "Für die Nacht haben wir uns eine exklusive kleine Halbinsel gekapert – direkt neben der Autobahnbrücke. 🌉🚐 Luxus pur, oder so ähnlich!"
+                ]
+            },
+            { 
+                coords: { lat: 51.263621, lng: -116.745294 },
+                date: "2025-06-19",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Yoho National Park",
+                km: 7600,
+                title: "Bären-Selfie-Fail",
+                text: [
+                    "Heute kein Luxus-Picknickplatz zum Frühstück, stattdessen Parkplatz-Romantik im Örtchen Golden. 😅 Aber auch da schmeckte der Kaffee! ☕️",
+                    "Tagesziel: Yoho National Park – und der hatte es in sich! Wasserfälle ohne Ende und dann... ein Schwarzbär! 🐻 Der stand uns auf dem Wanderweg gegenüber, als wäre es das Normalste der Welt. Während ich schon den Fluchtplan im Kopf durchging (Option A: Wegrennen, Option B: auf einen Baum klettern...), zückte Ina ihr Handy für ein Bären-Selfie. 🤳 Dem Bär wurde das Ganze aber zu bunt, und er trollte sich wieder in den Busch. Ina? Deutlich geknickt. Ich? Ein bisschen erleichtert, muss ich zugeben. 😉",
+                    "Der Rest des Tages: Wandern, Wasserfälle bestaunen, repeat. Irgendwann war bei mir aber die Luft raus, ich wollte nur noch zum Nachtquartier. Ina war zwar happy mit ihrer Foto-Ausbeute, aber ein paar mehr hätten es laut ihr schon sein können. 📸",
+                    "Der Weg zum Nachtlager war dann nochmal ein kleines Abenteuer für sich: eine unebene Forststraße, die an einer Stelle sogar überschwemmt war! 🌲💦 Bertha hat sich aber tapfer durchgekämpft, und wir sind erfolgreich in unserer privaten Natur-Kulisse eingetroffen. Was für ein Tag!"
+                ]
+            },
+            { 
+                coords: { lat: 51.067981, lng: -116.632336 },
+                date: "2025-06-20",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Parson",
+                km: 7639,
+                title: "Regen-Tanz",
+                text: [
+                    "Unser exklusiver Schlafplatz wurde nachts doch noch vom Güterzug heimgesucht 🚂 – diesmal hat sogar Ina die Schienen-Serenade vernommen!",
+                    "Der Morgen begann dafür tiefenentspannt mit einer Runde Yoga am Flussufer, gefolgt vom obligatorischen Frühstück. Namaste am Wasser! 🧘‍♀️ Die Motivation für große Taten? Hielt sich heute bei uns beiden in Grenzen. Das Wetter machte es uns mit Dauerregen auch nicht gerade leicht 🌧️. Also haben wir uns in der Kunst des gepflegten Nichtstuns versucht – was Ina sichtlich schwerfiel. Ich sag nur: Vanlife-Zen will gelernt sein!",
+                    "Die Wettervorhersage für die nächsten Tage? Mehr Regen, und als Bonus sogar Schnee in den Rockies! ❄️ Wir hoffen inständig auf ein paar trockene Lücken für Mini-Wanderungen, sonst droht hier bald der berüchtigte Van-Koller. Cabin fever, ahoi!"
+                ]
+            },
+            { 
+                coords: { lat: 50.632103, lng: -116.116314 },
+                date: "2025-06-21",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Radium Hot Springs",
+                km: 7711,
+                title: "Die Abkürzung",
+                text: [
+                    "Der Regen war unser treuer, nasser Begleiter bis zum Mittag. Also ab ins Café in Radium Village – Tassen hoch ☕️, Stimmung auch! Wie erhofft, klarte der Himmel am Nachmittag auf, also nix wie raus auf den nächstbesten Wanderweg. Etwas matschig 🌲, aber wir sind ja nicht aus Zucker! Dann meine brillante Idee: eine Abkürzung! Ina fand die Idee... und dann den Boden. 🤸‍♀️ Einmal lang gemacht, und ich glaube, ihre Laune machte danach einen ähnlichen Abflug. 😬",
+                    "Für die Nacht haben wir uns nochmal einen kostenlosen Platz geangelt – wir sind ja Profis im Sparfuchs-Camping. Morgen geht’s wieder in die Nationalpark-Zahl-Zone, aber hey, dafür gibt’s dann eine warme Dusche! 🚿 Man muss Prioritäten setzen. Der Plan für morgen steht auch schon, klingt nach einem Vanlife-Marathon: Einkaufen, fahren, wandern, Mittagessen futtern, weiterfahren, nochmal wandern, nochmal fahren, duschen, was Leckeres essen und dann ab in die Heia. 🛒🚗⛰️🥪😴"
+                ]
+            },
+            { 
+                coords: { lat: 51.41444, lng: -116.178424 },
+                date: "2025-06-22",
+                country: "Canada",
+                state: "Alberta",
+                place: "Lake Louise Campground",
+                km: 7847,
+                title: "Irrwege",
+                text: [
+                    "Der Tag startete bewölkt, aber trocken – perfekt für unsere Mission Kootenay National Park! 🌲 Ziel: Marble Canyon. Zwei Wanderungen standen auf dem Programm. Bis auf ein paar verirrte Regentropfen blieben wir trocken. Bei der zweiten Tour marschierte ich im Indiana-Jones-Modus voran und ließ Ina hinter mir. Irgendwann stand ich aber mitten im Wald, Weg weg. Mist, falsch abgebogen! 🤦‍♂️ Mein genialer Plan, durchs Unterholz abzukürzen, endete vor einem Abgrund. Also alles auf Anfang. Unterwegs traf ich dann Ina – die ebenfalls die Orientierung verloren hatte. Team Verirrung! 😂",
+                    "Nach erfolgreicher (und etwas chaotischer) Tagestour ging's zurück zum altbekannten Campingplatz am Lake Louise. Vorher noch ein kurzer Foto-Stopp 📸. Zurück in Bertha die böse Überraschung: Sie meinte mal wieder \"NÖ!\" und wollte nicht anspringen. Aber dank James' Crashkurs wusste ich diesmal, was zu tun ist, und konnte die Diva sofort wieder zum Leben erwecken. Warum ist mir dieser Auto-Guru nicht schon am Anfang meiner Reise begegnet? 🤷‍♂️",
+                    "Ohne weitere Zwischenfälle sind wir dann auf dem Campingplatz eingerollt. Jetzt gibt's erstmal Nudeln 🍝, dann eine heiße Dusche 🚿 und ab in die Koje! 😴"
+                ]
+            },
+            { 
+                coords: { lat: 51.09803, lng: -115.063557 },
+                date: "2025-06-23",
+                country: "Canada",
+                state: "Alberta",
+                place: "Bow River Dam",
+                km: 7956,
+                title: "Frost-Frust",
+                text: [
+                    "Die Nacht und der Morgen waren echt frostig! 🥶 Ina und Bertha hatten beide sichtliche Startschwierigkeiten. Also gab's an der nächsten Tanke erstmal was Warmes für die Damen: Für Bertha frisch gezapftes Benzin ⛽️ und für Ina einen heißen Tee. ☕️ Beide wieder happy!",
+                    "Weiter ging's zum nächsten Rastplatz, wo erstmal gefrühstückt wurde. Dort lockte ein Wanderpfad mit See und Berg am Ende – mein Entdeckerherz schlug höher! Musste mich aber gedulden, bis Ina startklar war. So richtig begeistert schien sie von der Kälte nicht zu sein. 😬 Auf Kilometer 2 war dann Schluss mit lustig: Ina zitterte am ganzen Körper. Schnell in meine Jacke gemummelt und ab zurück zu Bertha, die sich dank der aufgehenden Sonne schon in eine kuschelige Sauna verwandelt hatte. Genau das Richtige, um Ina wieder aufzutauen. Das war's dann wohl mit der großen Wanderung. 🤷‍♂️",
+                    "Als kleines Trostpflaster haben wir uns noch einen der gefühlt tausend wunderschönen Bergseen angeschaut. Dann hieß es für Ina aber Abschied nehmen von den majestätischen Gipfeln. Am Nachmittag rollten wir zurück Richtung Calgary und haben für die Nacht wieder unseren altbewährten Platz am Bow River Dam angesteuert. 🏞️"
+                ]
+            },
+            { 
+                coords: { lat: 51.106561, lng: -114.040435 },
+                date: "2025-06-24",
+                country: "Canada",
+                state: "Alberta",
+                place: "Calgary",
+                km: 8056,
+                title: "Stadtgetümmel",
+                text: [
+                    "Nach einer erholsamen Nacht ging's am Morgen zurück ins Getümmel von Calgary. Die Innenstadt stand auf dem Programm – und was soll ich sagen? Menschen, Menschen, Menschen! 🚶‍♀️🚶‍♂️",
+                    "Viel Aufregung gab's heute nicht, abgesehen vom üblichen Großstadt-Trubel. Ich habe mich von meiner treuen Starlink-Antenne getrennt (ein kleiner Abschiedsschmerz 📡), und Ina hat nochmal die Souvenir-Jagd eröffnet. 🛍️",
+                    "Am Nachmittag dann pünktlich zur Rush Hour zurück zum altbekannten Supermarkt-Parkplatz. Hier verbringen wir unsere letzte gemeinsame Nacht in der legendären Bertha-Vanlife-WG. Morgen früh heißt es dann für Ina Abschied nehmen und ab zurück in die Heimat. 🇩🇪 Ein bisschen Wehmut ist schon dabei!"
+                ]
+            },
+            { 
+                coords: { lat: 51.09803, lng: -115.063557 },
+                date: "2025-06-25",
+                country: "Canada",
+                state: "Alberta",
+                place: "Bow River Dam",
+                km: 8156,
+                title: "Ina's Abschied",
+                text: [
+                    "Gestern Abend der große Schock: Ina ohne USA-Durchreise-Visa! 😱 Also kurz vorm Schlafengehen noch schnell online den Antrag rausgefeuert. Heute Morgen dann die Mega-Erleichterung: Visum genehmigt, puh! 😅",
+                    "Halb 4 aufgestanden, Ina im Eiltempo zum Flughafen kutschiert. 🚗💨 Nach einem Mini-Frühstück auf dem Parkplatz ging's noch bis zum Check-in – und dann hieß es tatsächlich: Abschied nehmen. 👋",
+                    "Da stand ich nun wieder, allein mit Bertha. Fühlte sich erstmal komisch an. Aber ein bisschen happy war ich dann doch, wieder kompromissfrei und in meinem eigenen Tempo unterwegs zu sein. 😉 Heute stand dann erstmal das volle Solo-Programm an: Wäsche waschen bis der Arzt kommt, mich selbst im Schwimmbad generalüberholen 🧼, die Vorratskammern bis unters Dach vollstopfen und dann: Nichts wie raus aus der Stadt! 💨",
+                    "Für die Nacht hab ich zum dritten Mal unseren altbewährten Lieblings-Campingplatz angesteuert. Es schüttet wie aus Eimern 🌧️, also hab ich's mir in meinem Bettchen extra gemütlich gemacht. "
+                ]
+            },
+            { 
+                coords: { lat: 51.418049, lng: -116.177633 },
+                date: "2025-06-26",
+                country: "Canada",
+                state: "Alberta",
+                place: "Lake Louise Campground",
+                km: 7957,
+                title: "Nudel-Regen",
+                text: [
+                    "Der Wecker klingelte gefühlt zu früh, aber der Wille, wieder in meinen 5-Uhr-Rhythmus zu kommen, war stärker! Belohnt wurde ich mit einem feuerroten Sonnenaufgang – der perfekte Startschuss für eine letzte Heldentat im Banff Nationalpark. 🌅",
+                    "Gesagt, getan: Mount Bourgeau (2925m) rief! Nach einem schnellen Boxenstopp (Kaffee, Frühstück, Klo) ging's los. Der Weg entwickelte sich von einem Spaziergang zu einer echten Waden-Challenge. 🧗‍♂️ Mein Blick klebte an den Wolken am Gipfel – eine weitere Gewitter-Party brauchte ich nicht. Nach 3,5 Stunden der Triumph: Ich stand oben! Der Ausblick? Phänomenal... 10 Meter Sicht auf eine dicke Nebelwand. Haha!",
+                    "Auf dem Rückweg dann die wohlverdiente Pause am Bergsee. Wetter schien stabil, Zeit für Instant-Nudeln! Fünf Minuten später stand ich mitten im Regen – aber immerhin mit einer heißen Tasse Nudeln in der Hand. 🍜 Timing ist alles!",
+                    "Völlig erschöpft nach 6 Stunden, 1500 Höhenmetern und 24 km fiel ich in Bertha ins Bett. Problem: Ich war immer noch im Nationalpark und viel zu k.o., um 120 km zum nächsten kostenlosen Platz zu fahren. Also hab ich mein Glück ohne Reservierung am Lake Louise Campingplatz versucht und... den allerletzten Platz ergattert! 🥳 Ein voller Erfolg auf ganzer Linie"
+                ]
+            },
+            { 
+                coords: { lat: 50.92832, lng: -118.475805 },
+                date: "2025-06-27",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Rutherford Beach Rest Area",
+                km: 8209,
+                title: "Déjà-vu",
+                text: [
+                    "Der prasselnde Regen auf Berthas Dach war heute mein Wecker. 😴 Der Marsch von gestern hing mir aber noch tief in den Knochen, also hab ich mich einfach nochmal umgedreht und eine weitere Stunde gedöst. Der Wetterbericht bestätigte die düstere Ahnung: Regen, Regen und noch mehr Regen. 🌧️ Also wurde kurzerhand ein Fahrtag ausgerufen, Zielrichtung: Squamish!",
+                    "Den ganzen Tag verbrachte ich im Auto, während draußen die Welt unterging. Jedes kleine Wolkenloch, durch das sich ein Sonnenstrahl kämpfte, zauberte mir sofort ein Lächeln ins Gesicht, nur um dann wieder der stillen Melancholie des Regens zu weichen. 🌦️",
+                    "Die Fahrt führte mich über den altbekannten Highway 1, und bei den Stopps in Golden und Revelstoke hatte ich ein echtes Déjà-vu. Ich könnte schwören, ich hätte Ina kurz gesehen. 😉 Mein Nachtlager habe ich an unserem alten Frühstücksplatz am Three Valley See aufgeschlagen. Die Aussicht? Ein Traum! Der Highway? Keine fünf Meter entfernt und LAUT! Ich hoffe mal, die Trucker machen irgendwann auch Feierabend und es wird ruhiger. 🚛💨"
+                ]
+            },
+            { 
+                coords: { lat: 50.676046, lng: -120.312765 },
+                date: "2025-06-28",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Kamloops",
+                km: 8402,
+                title: "Sonnentankstelle",
+                text: [
+                    "Nach einem Seelenfrühstück am Seeufer hieß es heute: Kurs West, auf der Jagd nach der Sonne! ☀️ Und tatsächlich, je weiter ich fuhr, desto mehr riss die Wolkendecke auf. Bei meiner Ankunft in Kamloops war der Sieg dann perfekt – strahlender Sonnenschein und blauer Himmel empfingen mich!",
+                    "Nach einem kurzen Boxenstopp im Lieblingscafé ☕️ hab ich mich direkt an die Vitamin-D-Tankstelle am Thompson River gelegt. Einfach mal entspannen, die Akkus aufladen und die Wärme genießen. Ein herrlich unspektakulärer, aber dringend nötiger Chill-Tag!",
+                    "Doch die Ruhe währt nicht ewig: Das gute Wetter schreit förmlich danach, morgen mal wieder eine kleine Wanderung zu riskieren. Die Wanderschuhe scharren schon mit den Hufen! ⛰️"
+                ]
+            },
+            { 
+                coords: { lat: 50.669416, lng: -121.954604 },
+                date: "2025-06-29",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Lillooet",
+                km: 8576,
+                title: "Highway 99",
+                text: [
+                    "Die Nacht war ich Teil einer kleinen, improvisierten Van-Siedlung – rund 10 andere Camper gesellten sich zu mir auf dem Parkplatz. 🚐 Die ersten Sonnenstrahlen am Morgen ließen nicht lange auf sich warten und die Temperatur ging recht schnell in die Höhe! 🔥",
+                    "Heute war wieder Fahrtag, aber ein Zwischenstopp an einem glasklaren See musste sein. Eine herrliche Abkühlung und die perfekte Gelegenheit, den Staub und Schweiß der letzten Tage abzuspülen. 💦",
+                    "Am Nachmittag dann der große Moment: Highway 99! Hier, wo vor langer Zeit alles begann. Nur noch ca. 250 km südwärts, und ich bin wieder in Squamish. Ein bisschen komisch fühlt sich der Gedanke an das nahende Ende der großen Runde schon an. Aber bevor der Kreis sich schließt, habe ich noch ein oder zwei Wanderungen auf meiner Liste. Die Berge rufen ein letztes Mal! ⛰️",
+                    "Für die Nacht habe ich mich in einer kleinen Parkbucht direkt am Highway verschanzt und hoffe, dass die Polizei ein Auge zudrückt. 🤞"
+                ]
+            },
+            {
+                coords: { lat: 49.705773, lng: -123.1553097 },
+                date: "2025-06-30",
+                country: "Canada",
+                state: "British Columbia",
+                place: "Squamish",
+                km: 8762,
+                title: "THE END",
+                text: [
+                    "Der Morgen startete mit der gewohnten Luxus-Routine: Frühstück mit Seeblick. Fühlt sich schon fast normal an, dieser Lifestyle! ☕️",
+                    "Ich war voller Tatendrang, die Wanderschuhe geschnürt und bereit, Gipfel zu stürmen! Doch die kanadische Bürokratie bremste mich eiskalt aus: Hier braucht man einen Passierschein A38 zum Wandern! 🎟️ So was hab ich auch noch nicht erlebt. Ergebnis: keine Permits mehr für heute oder morgen. Mein innerer Bergsteiger war am Boden zerstört.",
+                    "Planlos saß ich in Bertha und wusste nicht wohin mit meiner Energie. Also Plan B: vorzeitige Rückkehr nach Squamish. Und was soll ich sagen? Alles fühlte sich sofort vertraut an. Als Krönung des Tages hab ich sogar meinen alten Stamm-Parkplatz in der Bailey Street wiederbekommen – als wäre ich nie weg gewesen. 🚐 ",
+                ]
+            }
+        ];
+    </script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+
+    <!-- log book stuff -->
+    <script>
+        const url = new URL(window.location.href);
+        const params = new URLSearchParams(url.search);
+
+        let zoomed = parseInt(params.get("zoomed") ?? 0) != 0;
+        let currentIndex = parseInt(params.get("day") ?? "0");
+        const container = document.getElementById("container");
+        const progressElement = document.querySelector(".progress");
+        const progressVan = document.getElementById("progressVan");
+        const odometerElement = document.getElementById("odometer");
+        const titleElement = document.getElementById("title");
+        const navLeft = document.getElementById("navleft");
+        const navRight = document.getElementById("navright");
+
+        // Create Pages
+        logbook.forEach((item, index) => {
+            const page = document.createElement("div");
+            page.classList.add("page");
+            page.setAttribute("data-index", index);
+            page.style.transform = `translateX(${index * 100}%)`;
+
+            const pageContent = document.createElement("div");
+            pageContent.classList.add("page-content");
+            pageContent.innerHTML = `<h1>${item.title ?? ''}</h1>` + item.text.map(p => `<p style="text-align: justify; font-size: 1.15rem; line-height: 1.5; margin-bottom: 0.5rem;">${p}</p>`).reduce((acc, p) => acc + " " + p); 
+            
+            page.appendChild(pageContent);
+            container.appendChild(page);
+        });
+
+        function scrollPage(direction) {
+            const pages = document.querySelectorAll(".page");
+            const pageContents = document.querySelectorAll(".page-content");
+
+            if ((direction === "next" || direction === "right") && currentIndex < logbook.length - 1) {
+                fadeOutText(pageContents[currentIndex]);
+                currentIndex++;
+            } else if ((direction === "prev" || direction === "left") && currentIndex > 0) {
+                fadeOutText(pageContents[currentIndex]);
+                currentIndex--;
+            } else {
+                return;
+            }
+
+            updatePage();
+        }
+
+        function daysBetween(date1, date2) {
+            const oneDay = 24 * 60 * 60 * 1000; // Milliseconds in a day
+            const d1 = new Date(date1);
+            const d2 = new Date(date2);
+            
+            return Math.round(Math.abs((d2 - d1) / oneDay));
+        }
+
+        function updatePage() {
+            const pages = document.querySelectorAll(".page");
+            const pageContents = document.querySelectorAll(".page-content");
+            setTimeout(() => {
+                pages.forEach((page, index) => {
+                    const offset = index - currentIndex;
+                    page.style.transform = `translateX(${offset * 100}%)`;
+                });
+
+                const log = logbook[currentIndex];
+
+                titleElement.textContent = currentIndex === 0 ?  "Reise Logbuch von Bertha & Tobi" : `Tag ${currentIndex}: ${log.place}, ${log.state} - ${log.country} (${new Date(log.date).toLocaleDateString()})`;
+                const progressPercentage = (currentIndex / (logbook.length - 1)) * 100;
+                progressElement.style.width = `${progressPercentage}%`;
+                
+                // Keep the van icon exactly at the end of the progress bar (100%)
+                progressVan.style.transform = `translateX(100%)`;
+
+                fadeInText(pageContents[currentIndex]);
+
+                // Update Odometer
+                updateOdometer(logbook[currentIndex].km);
+                updateMinimap(currentIndex);
+
+                const url = new URL(window.location.href);
+                const params = new URLSearchParams(url.search);
+
+                params.set('day', `${currentIndex}`); 
+                // Update the URL without reloading the page
+                window.history.replaceState({}, '', `${url.pathname}?${params.toString()}`);
+
+                navLeft.style.display = currentIndex === 0 ? 'none' : 'flex';
+                navRight.style.display = currentIndex === logbook.length - 1 ? 'none' : 'flex';
+
+                config.prevPage = config.currentPage;
+                config.currentPage = currentIndex;
+                updateScene();
+
+            }, 300);
+        }
+
+        function fadeOutText(element) {
+            element.style.opacity = "0";
+            element.style.transform = "scale(0.95)";
+        }
+
+        function fadeInText(element) {
+            setTimeout(() => {
+                element.style.opacity = "1";
+                element.style.transform = "scale(1)";
+            }, 200);
+        }
+
+        // Function to animate the odometer with 0.5s max animation time
+        let odoUpdater = null;
+        function updateOdometer(km) {
+            clearInterval(odoUpdater);
+            const targetKm = km;
+            let currentKm = parseInt(odometerElement.textContent);
+            let step = currentKm < targetKm ? 1 : -1;
+            const maxDuration = 200; // Maximum duration for animation
+            const stepCount = Math.abs(targetKm - currentKm);
+            const stepTime = Math.max(stepCount / maxDuration, 1);
+            odoUpdater = setInterval(() => {
+
+                if (currentKm === targetKm) {
+                    clearInterval(odoUpdater);
+                    return;
+                }
+                currentKm += Math.round(step * stepTime);
+                if(step > 0) {
+                    currentKm = currentKm > targetKm ? targetKm : currentKm;
+                }
+                else {
+                    currentKm = currentKm < targetKm ? targetKm : currentKm;
+                }
+                odometerElement.textContent = currentKm.toString().padStart(4, '0') + " km";
+            }, 1);
+        }
+
+        let isScrolling = false;
+
+        function handleScroll(event) {
+            if (isScrolling) return;
+            isScrolling = true;
+
+            if (event.deltaY > 0 || event.key === "ArrowDown" || event.key === "ArrowRight") {
+                scrollPage("next");
+            } else if (event.deltaY < 0 || event.key === "ArrowUp" || event.key === "ArrowLeft") {
+                scrollPage("prev");
+            }
+
+            setTimeout(() => { isScrolling = false; }, 500);
+        }
+
+        window.addEventListener("wheel", handleScroll);
+        window.addEventListener("keydown", handleScroll);
+        
+
+        var route = logbook.map(e => e.coords).map(coord => [coord.lat, coord.lng]);
+
+        // Initialize the map
+        var map = L.map('minimap');
+
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+
+        // Draw entire the route
+        var polyline0 = L.polyline(route, { color: '#0099ff' }).addTo(map);
+        var polyline1 = L.polyline([], { color: '#ff3939' }).addTo(map);
+
+        // Fit the map to the polyline
+        map.fitBounds(polyline0.getBounds().pad(0.2));
+
+        // Add a marker at the initial location
+        var customIcon = L.icon({
+            iconUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAA7AAAAOwBeShxvQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAWnSURBVFiF7ZZ7bJbVHcc/5zyXvn17QUZXZlu0tIMic1WpENBYtCMMxJoNNRG3ZRoNwxmMwzjjdZ1GDaiobHGYkA3dhRgmdWGzDDVcNAMN4gYtpRWLqYiUlbavb9/LczvHPx5eWt++BeZQ//GbPMnz/H6/c36f5/zODb7W1/qKJYa9W0BFlu3/0TEgdroA8zCtDRiWPDO5hUnggQ5uIQjWnhogv+igWPJspZj5wzOT33Nh+8uoP98Z4PsrceJ3A3r0BlZeQq7aq8X8JQ4IfTxYi5pZKfnioJYvDmpx2fXpjB3Qom7+kG/avNRnfPU/Ssl1MW3c9XdNSWVAwdiNgJErtTn8Q//ndV8ubLLFhFpwEgSrfxzJ1Ejv2Ypc9CSitAod60Gtu9M84Wt7w5Q3rkaMGY8+2oV65XEhpIGum42010i1dumVpAaXorynTwogvlUt1aaVLoat0FowtkwANoAoPVervz3sYlgK5UvxzQkq016UVPhq/T0KaSoCT4qK81TYoYDSCcjvzJVqsG8BsZ5RAAwzwUBPVCz7U0R81AEqbM/4qiG4BzZGxOFO0MdLWTZ5yPfo9tCXSVpeM+QLAlSyHwKvN1cJwlG08pYijRXi3PM9KTkjK0FrobXSAsfJ00c6FW5qFrA7N0CoacCutU8govkn73z573DrxmLPmTLU3Avg0EA4QH0JzYrNgBAvo/XzwA6gJ1dfwwHmTqzgpQPbKHzkWak6uk0/O7jybN9sWqrkNbeSXDBeRBdfFtoPD0Dtcou4IxBSoJXGTXtgWQ6OUwHkHH4YNgkti+9f1UCktRN+vTpPBYuW2NnBxgu/d+deGhth39wO6arv4i5/PjR8fAjxs2u0njzV5v39TxGP/+SUAPkRGufOxvQ8ENECn+tvNrODxWvNvuuNBHB9IBrNNmvmXS15as8i4BlgVy6AzIQbl0hSVT9jNM7/XQJg6jSon2NQNOaPjHLGZP5yzgVTSBYXUvR5ko0vBt3VCVs3hcuw/xg68OG9digphXSyBrgPaAbaRgAU5LOgcQ4FAFKCdl3J7h0jEulUSsoc/9FYC7d3H2NLcxMajeNqWn1XTP3HrxK+NoWaWihLROz+9i7VZFm80XOMeYBzAsAwmH3FrLAc530bGi52VftzdySzE02cHMjpF4RLTQwDkQIeawyABABdvXDhYzrY81KiYHj7wW6bq5f5s11fNfXHuOcEgOMyTmvo6g4DVz+Yjow23O0HYMduzHsX5/Z398GHfbl9hSUBdy8yxc0r3Bv6GQagFVx1E748jT2wMI9g2eXCmDlxpG//Eah/UoerIkdfaU9jW+C4jMnYBECeSWJfk4hWlZwa4HR0vAT+J61Dy7ytE6Y3olMuorSY+NFPKCY35xejfQfgkmrYda/AEEN3g5wA/43D+neg+d8QT3++hJ6PeGED7O0IvydVwr/eh4aVmkATZOIyQ6SC4yfwpjb4wXPSP6u0zAl8DyfWa2/9RWBNO+c0Ewfw03VFrrSxfvnMOPqPfsyV37PcDb+J2x9uk+LNLSa3rHDVZwAiFvtf2Uvdzy9HXLfG8OqvvdEqr64xATre2amvXbMx1fWQd4ozMtRvtxq6Y+Ase+FtSzBMk/fefZvN21+1/9oC1zVAedY8M4G/xFKMuWO95uktJLSRZ5RX11hdre8SLSpm0kUzxNv/bM6buVzHpTzZxTJU6xERrW2YaRqmwc6WZqpr6ygpq+DW+we9VROVm056+QNxosCrwKMmsIZwi+SDXr5hmO4qFQSUVlRi2jZuKonSqLcOshiGajea8qORuwYH+qYLIZl00Qw8J43nOMST1mtv7k7/IZtXAPnAiY3HtKxN5dVTausa5kcC32dny4ZE7+FDLUHgj7L1jNAM07ZbZs1fKMaWltH21jY+2LdHB753KbA/KzYNcJBhV+ov+en6FLw4YriedeYNAAAAAElFTkSuQmCC",
+            iconSize: [32, 32], // Size of the icon
+            iconAnchor: [16, 32], // Point of the icon that corresponds to marker location
+            popupAnchor: [0, -32] // Popup position relative to the icon
+        });
+        var bertha = L.marker(route[currentIndex], { icon: customIcon }).addTo(map);
+        bertha.on('click', () => setMinimapZoom(!zoomed));
+        bertha.on('touchstart', () => setMinimapZoom(!zoomed));
+        
+        bertha.setZIndexOffset(1000);
+        
+        var places = route.map((coords, index) => {
+            var place = L.marker(coords).addTo(map);
+            place.setZIndexOffset( (route.length + 1) - index);
+            place.on('click', () => {
+                currentIndex = index;
+                updatePage();
+            });
+
+            place.on('touchstart', () => {
+                currentIndex = index;
+                updatePage();
+            });
+
+            return place;
+        });
+
+        var markerScale = 0.66;
+        var redIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+            iconSize: [Math.round(25 * markerScale), Math.round(41 * markerScale)],  // Scale icon size
+            iconAnchor: [Math.round(12 * markerScale), Math.round(41 * markerScale)], // Scale anchor
+            popupAnchor: [Math.round(1 * markerScale), Math.round(-34 * markerScale)], // Scale popup anchor
+            shadowSize: [Math.round(41 * markerScale), Math.round(41 * markerScale)] // Scale shadow
+        });
+
+        var blueIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+            iconSize: [Math.round(25 * markerScale), Math.round(41 * markerScale)],  // Scale icon size
+            iconAnchor: [Math.round(12 * markerScale), Math.round(41 * markerScale)], // Scale anchor
+            popupAnchor: [Math.round(1 * markerScale), Math.round(-34 * markerScale)], // Scale popup anchor
+            shadowSize: [Math.round(41 * markerScale), Math.round(41 * markerScale)] // Scale shadow
+        });
+
+        function getNeighborsSlice(array, targetIndex, n) {
+            const start = Math.max(0, targetIndex - n);
+            const end = Math.min(array.length, targetIndex + n + 1);
+            return array.slice(start, end);
+        }
+
+        function setMinimapZoom(isZoomed) {
+            const url = new URL(window.location.href);
+            const params = new URLSearchParams(url.search);
+            zoomed = isZoomed;
+            if (isZoomed) {
+                params.set('zoomed', 1); 
+                map.fitBounds(L.latLngBounds(getNeighborsSlice(logbook, currentIndex, 2).map(e => [e.coords.lat, e.coords.lng])).pad(0.2), { animate: true });
+            } 
+            else {
+                params.delete('zoomed');
+                map.fitBounds(polyline0.getBounds().pad(0.2), { animate: true });
+            }
+            // Update the URL without reloading the page
+            window.history.replaceState({}, '', `${url.pathname}?${params.toString()}`);
+        }
+
+        // Function to update the marker's position based on input coordinates
+        function updateMinimap(currentIndex) {
+            const log = logbook[currentIndex];
+            polyline1.setLatLngs(route.slice(0, currentIndex + 1));
+            bertha.setLatLng(route[currentIndex], { animate: true });
+            // bertha.bindTooltip(
+            //     `<span>${log.place}</span>, <span>${new Date(log.date).toLocaleDateString()}</span><br><span>${log.state}</span>, <span>${log.country}</span>`, 
+            //     {
+            //         permanent: true,
+            //         direction: "top",
+            //         offset: [0, -28]
+            //     }
+            // );
+
+            // reset place markers
+            places.forEach(p => p.setOpacity(1));
+            places.forEach(p => p.setIcon(blueIcon));
+
+            places.slice(0, currentIndex).forEach(p => p.setIcon(redIcon));
+            places[currentIndex].setOpacity(0); 
+
+            if(zoomed)
+            {
+                map.fitBounds(L.latLngBounds(getNeighborsSlice(logbook, currentIndex, 2).map(e => [e.coords.lat, e.coords.lng])).pad(0.2), { animate: true });
+            }
+        }
+    </script>
+
+    <!-- background scene stuff -->
+    <script>
+        // Configuration
+        let config = {
+            totalPages: document.querySelectorAll(".page").length,
+            cycleLength: 24,
+            celestialRotationOffset: -12,
+            celestialOrbitOffsetX: '35%',
+            currentPage: currentIndex,
+            prevPage: currentIndex, // To track direction of movement
+            phases: [
+                // Phase: { name, skyColorTop, skyColorBottom, cloudColor }
+                {
+                    name: 'Dawn',
+                    skyColorTop: '#2c3e50', // Darker Blue/Grey Top
+                    skyColorBottom: '#f39c12', // Lighter Orange Bottom
+                    cloudColor: 'rgba(255, 222, 173, 0.8)'
+                },
+                {
+                    name: 'Day',
+                    skyColorTop: '#3498db', // Medium Blue Top
+                    skyColorBottom: '#87CEEB', // Lighter Sky Blue Bottom
+                    cloudColor: 'rgba(255, 255, 255, 0.8)'
+                },
+                {
+                    name: 'Dusk',
+                    skyColorTop: '#e74c3c', // Darker Orange/Red Top
+                    skyColorBottom: '#f1c40f', // Lighter Yellow/Orange Bottom
+                    cloudColor: 'rgba(255, 153, 153, 0.8)'
+                },
+                {
+                    name: 'Night',
+                    skyColorTop: '#0b132b', // Very Dark Blue Top
+                    skyColorBottom: '#1c2541', // Dark Blue Bottom
+                    cloudColor: 'rgba(105, 105, 105, 0.8)'
+                }
+            ]
+        };
+
+        // DOM elements
+        const sky = document.querySelector('.sky');
+        const sun = document.querySelector('.sun');
+        const moon = document.querySelector('.moon');
+        const sceneContainer = document.querySelector('.scene-container');
+        const celestialOrbit = document.querySelector('.celestial-orbit');
+        
+
+        function updateOrbitPosition() {
+            const offsetX = config.celestialOrbitOffsetX || 0; // Default to 0 if undefined
+            // Apply the horizontal translation to the orbit container
+            celestialOrbit.style.transform = `translateX(${offsetX})`;
+        }
+
+        // Calculate time of day based on current page
+        function calculateTimeOfDay() {
+            // Calculate the position in the cycle (0 to 1)
+            const cycleFraction = (config.currentPage % config.cycleLength) / config.cycleLength;
+            // Calculate which phase we're in and how far into it
+            const phaseDuration = 1 / config.phases.length;
+            const phaseIndex = Math.floor(cycleFraction / phaseDuration);
+            const phaseProgress = (cycleFraction % phaseDuration) / phaseDuration;
+            
+            // Get current and next phase (with wrap-around)
+            const currentPhase = config.phases[phaseIndex];
+            const nextPhase = config.phases[(phaseIndex + 1) % config.phases.length];
+            
+            return {
+                currentPhase,
+                nextPhase,
+                phaseProgress,
+                phaseIndex,
+                cycleFraction
+            };
+        }
+
+        // Update sky color based on time of day
+        function updateSkyColor() {
+            const { currentPhase, nextPhase, phaseProgress } = calculateTimeOfDay();
+
+            // Interpolate between current and next phase colors for both top and bottom
+            const topColor = interpolateColor(currentPhase.skyColorTop, nextPhase.skyColorTop, phaseProgress);
+            const bottomColor = interpolateColor(currentPhase.skyColorBottom, nextPhase.skyColorBottom, phaseProgress);
+
+            // Apply the gradient background
+            sky.style.backgroundImage = `linear-gradient(to bottom, ${topColor}, ${bottomColor})`;
+
+            // Update clouds color (still uses a single interpolated color based on phase cloud colors)
+            const cloudColor = interpolateColor(currentPhase.cloudColor, nextPhase.cloudColor, phaseProgress);
+            document.querySelectorAll('.cloud').forEach(cloud => {
+                cloud.style.backgroundColor = cloudColor;
+            });
+        }
+
+        // Position sun and moon on the semicircle orbit
+        function positionCelestialBodies(rotationAngle) {
+            const orbitWidth = celestialOrbit.offsetWidth;
+            const orbitHeight = celestialOrbit.offsetHeight;
+            const sunHeight = sun.offsetHeight;
+            const moonHeight = moon.offsetHeight;
+
+            if (orbitHeight <= 0 || orbitWidth <= 0 || sunHeight <= 0 || moonHeight <= 0) {
+                 sun.style.opacity = 0;
+                 moon.style.opacity = 0;
+                 // Set default transform if dimensions invalid
+                 sun.style.transform = 'translate(-50%, -50%) scale(1)';
+                 moon.style.transform = 'translate(-50%, -50%) scale(1)';
+                 return;
+            }
+
+            // SUN: Red-Orange (Horizon) <--> Bright Yellow (Zenith)
+            const sunColors = {
+                horizon: {
+                    // Less red, more deep orange tones
+                    gradient: ['#ffb74d', '#ffa726', '#fb8c00'], // Amber 400 -> Orange 400 -> Orange 700
+                    shadow: ['#ffb74d', '#ffa726'] // Match inner/middle gradient
+                },
+                zenith: {
+                    gradient: ['#fffde7', '#fff176', '#ffeb3b'], // Inner -> Middle -> Outer
+                    shadow: ['#ffeb3b', '#ff9800'] // Glow colors
+                }
+            };
+
+            // MOON: Yellowish (Horizon) <--> White/Grey (Zenith)
+            const moonColors = {
+                horizon: {
+                    gradient: ['#fff9c4', '#fff59d', '#ffee58'], // Inner -> Middle -> Outer
+                    shadow: ['#fff9c4', '#ffee58'] // Glow colors
+                },
+                zenith: {
+                    gradient: ['#ffffff', '#f5f5f5', '#e0e0e0'], // Inner -> Middle -> Outer
+                    shadow: ['#e0e0e0', '#f5f5f5'] // Glow colors
+                }
+            };
+
+            // --- Define Scaling Parameters ---
+            const maxScale = 1.5; // Size multiplier at horizon (e.g., 1.2 = 20% bigger)
+            const minScale = 1.0; // Size multiplier at zenith (normal size)
+            const scaleDifference = maxScale - minScale;
+
+            const sunAngleRad = (rotationAngle % 360) * Math.PI / 180; // Ensure angle is within 0-360
+            const sunX = orbitWidth / 2 * (1 - Math.cos(sunAngleRad));
+            const sunY = orbitHeight * Math.sin(sunAngleRad); // Goes from 0 (horizon) up to orbitHeight (zenith) and back down
+
+            // Calculate position for moon (opposite of sun)
+            const moonAngleRad = ((rotationAngle + 180) % 360) * Math.PI / 180;
+            const moonX = orbitWidth / 2 * (1 - Math.cos(moonAngleRad));
+            const moonY = orbitHeight * Math.sin(moonAngleRad); // Goes from 0 up to orbitHeight and back down
+
+            // --- Calculate Vertical Factor (0 at horizon, 1 at zenith) ---
+            // Use Math.max(0, ...) to prevent negative values if angle goes slightly beyond 0/180 due to floating point
+            const sunVerticalFactor = Math.max(0, sunY) / orbitHeight;
+            const moonVerticalFactor = Math.max(0, moonY) / orbitHeight;
+
+            // --- Calculate *Adjusted* Factor for Sun Color Transition --- V3 ---
+            // Apply a power curve (exponent < 1) to make color change faster near horizon
+            // Tunable: Lower exponent (e.g., 0.4) makes it change even faster. Higher (e.g., 0.7) makes it more linear.
+            const sunColorFactor = Math.pow(sunVerticalFactor, 0.5); // Use square root curve
+
+            // --- Calculate Current Scale ---
+            // Scale = maxScale when factor = 0, scale = minScale when factor = 1
+            const sunScale = maxScale - (sunVerticalFactor * scaleDifference);
+            const moonScale = maxScale - (moonVerticalFactor * scaleDifference);
+
+            // --- Interpolate and Apply SUN Styles ---
+            // Use **sunColorFactor** for color/shadow interpolation
+            const sunGradientInner = interpolateColor(sunColors.horizon.gradient[0], sunColors.zenith.gradient[0], sunColorFactor);
+            const sunGradientMiddle = interpolateColor(sunColors.horizon.gradient[1], sunColors.zenith.gradient[1], sunColorFactor);
+            const sunGradientOuter = interpolateColor(sunColors.horizon.gradient[2], sunColors.zenith.gradient[2], sunColorFactor);
+            const sunShadow1 = interpolateColor(sunColors.horizon.shadow[0], sunColors.zenith.shadow[0], sunColorFactor);
+            const sunShadow2 = interpolateColor(sunColors.horizon.shadow[1], sunColors.zenith.shadow[1], sunColorFactor);
+
+            sun.style.backgroundImage = `radial-gradient(circle, ${sunGradientInner} 10%, ${sunGradientMiddle} 60%, ${sunGradientOuter} 100%)`;
+            sun.style.boxShadow = `0 0 ${20 + 30 * sunVerticalFactor}px ${sunShadow1}, 0 0 ${40 + 60 * sunVerticalFactor}px ${sunShadow2}`; // Make shadow size dynamic too
+            sun.style.left = `${sunX}px`;
+            sun.style.top = `${orbitHeight - sunY}px`; // Y is inverted for screen coords
+            // Apply combined transform for centering and scaling
+            sun.style.transform = `translate(-50%, -50%) scale(${sunScale})`;
+
+            // --- Interpolate and Apply MOON Styles ---
+            const moonGradientInner = interpolateColor(moonColors.horizon.gradient[0], moonColors.zenith.gradient[0], moonVerticalFactor);
+            const moonGradientMiddle = interpolateColor(moonColors.horizon.gradient[1], moonColors.zenith.gradient[1], moonVerticalFactor);
+            const moonGradientOuter = interpolateColor(moonColors.horizon.gradient[2], moonColors.zenith.gradient[2], moonVerticalFactor);
+            const moonShadow1 = interpolateColor(moonColors.horizon.shadow[0], moonColors.zenith.shadow[0], moonVerticalFactor);
+            const moonShadow2 = interpolateColor(moonColors.horizon.shadow[1], moonColors.zenith.shadow[1], moonVerticalFactor);
+
+            moon.style.backgroundImage = `radial-gradient(circle, ${moonGradientInner} 10%, ${moonGradientMiddle} 60%, ${moonGradientOuter} 100%)`;
+            moon.style.boxShadow = `0 0 ${15 + 15 * moonVerticalFactor}px ${moonShadow1}, 0 0 ${30 + 20 * moonVerticalFactor}px ${moonShadow2}`; // Make shadow size dynamic too
+            moon.style.left = `${moonX}px`;
+            moon.style.top = `${orbitHeight - moonY}px`; // Y is inverted for screen coords
+            // Apply combined transform for centering and scaling
+            moon.style.transform = `translate(-50%, -50%) scale(${moonScale})`;
+        }
+
+        // Update celestial bodies position
+        function updateCelestialBodies() {
+            const { cycleFraction } = calculateTimeOfDay();
+
+            // Calculate base rotation angle (0 to 360 degrees) based on cycle progress
+            const baseRotationAngle = cycleFraction * 360;
+
+            // Apply the constant offset and wrap around using modulo
+            // Ensure the result is positive if the offset is negative
+            const adjustedRotationAngle = (baseRotationAngle + config.celestialRotationOffset % 360 + 360) % 360;
+
+            // Position celestial bodies based on the *adjusted* angle
+            positionCelestialBodies(adjustedRotationAngle);
+        }
+
+        // Helper function to interpolate between two colors
+        function interpolateColor(color1, color2, factor) {
+            // Parse the colors
+            const parseColor = (color) => {
+                if (color.startsWith('rgba')) {
+                    const parts = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                    return {
+                        r: parseInt(parts[1]),
+                        g: parseInt(parts[2]),
+                        b: parseInt(parts[3]),
+                        a: parseFloat(parts[4])
+                    };
+                } else {
+                    const hex = color.replace('#', '');
+                    return {
+                        r: parseInt(hex.substring(0, 2), 16),
+                        g: parseInt(hex.substring(2, 4), 16),
+                        b: parseInt(hex.substring(4, 6), 16),
+                        a: 1
+                    };
+                }
+            };
+            
+            const c1 = parseColor(color1);
+            const c2 = parseColor(color2);
+            
+            // Interpolate
+            const r = Math.round(c1.r + factor * (c2.r - c1.r));
+            const g = Math.round(c1.g + factor * (c2.g - c1.g));
+            const b = Math.round(c1.b + factor * (c2.b - c1.b));
+            const a = parseFloat((c1.a + factor * (c2.a - c1.a)).toFixed(2));
+            
+            return `rgba(${r}, ${g}, ${b}, ${a})`;
+        }
+
+        // Create clouds
+        function createClouds(count = 10) {
+            // Clear existing clouds
+            document.querySelectorAll('.cloud').forEach(cloud => cloud.remove());
+            
+            for (let i = 0; i < count; i++) {
+                const cloud = document.createElement('div');
+                cloud.className = 'cloud';
+                
+                // Random size
+                const width = Math.random() * 150 + 100;
+                const height = Math.random() * 40 + 30;
+                
+                // Random position
+                const top = Math.random() * 200;
+                const left = Math.random() * window.innerWidth;
+                
+                cloud.style.width = `${width}px`;
+                cloud.style.height = `${height}px`;
+                cloud.style.top = `${top}px`;
+                cloud.style.left = `${left}px`;
+                
+                // Add some variation to the cloud shape
+                const beforeDiv = document.createElement('div');
+                beforeDiv.style.position = 'absolute';
+                beforeDiv.style.width = `${width * 0.6}px`;
+                beforeDiv.style.height = `${height * 1.2}px`;
+                beforeDiv.style.top = `${-height * 0.2}px`;
+                beforeDiv.style.left = `${width * 0.2}px`;
+                beforeDiv.style.borderRadius = '50%';
+                beforeDiv.style.backgroundColor = 'inherit';
+                
+                cloud.appendChild(beforeDiv);
+                sceneContainer.appendChild(cloud);
+                
+                // Animate the cloud
+                animateCloud(cloud);
+            }
+        }
+
+        // Animate cloud movement
+        function animateCloud(cloud) {
+            const speed = Math.random() * 600000 + 100000; // between 10-30 seconds
+            const startPosition = parseInt(cloud.style.left);
+            const endPosition = startPosition < window.innerWidth / 2 
+                ? window.innerWidth + 200 
+                : -200;
+            
+            cloud.style.left = `${startPosition}px`;
+            
+            setTimeout(() => {
+                cloud.style.transition = `left ${speed}ms linear`;
+                cloud.style.left = `${endPosition}px`;
+                
+                // When animation is done, reset and restart
+                setTimeout(() => {
+                    cloud.style.transition = 'none';
+                    cloud.style.left = (endPosition > 0) ? '-200px' : `${window.innerWidth + 200}px`;
+                    animateCloud(cloud);
+                }, speed);
+            }, 100);
+        }
+
+        // Update everything based on current page
+        function updateScene() {
+            updateSkyColor();
+            updateCelestialBodies();
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            updateOrbitPosition();
+            updateScene(); // Update bodies positioning with new window size
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            updateOrbitPosition();
+            updateCelestialBodies(); // Initialize positions
+            createClouds();
+            updateScene();
+        });
+    </script>
+
+    <!-- main -->
+    <script>
+        updatePage();
+    </script>
+</body>
+</html>
